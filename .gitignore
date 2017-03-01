@@ -1,0 +1,4 @@
+.idea
+cpp/bin
+cpp/build
+cpp/cmake-build-debug

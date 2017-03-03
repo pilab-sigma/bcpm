@@ -21,11 +21,11 @@ class Potential(metaclass=ABCMeta):
         pass
 
     @abstractclassmethod
-    def default(cls, m, n):
+    def from_observation(cls, obs, args):
         pass
 
     @abstractclassmethod
-    def from_observation(cls, obs, m, n):
+    def default(cls, args):
         pass
 
     def copy(self):
@@ -37,14 +37,6 @@ class Potential(metaclass=ABCMeta):
 
     @abstractmethod
     def mean(self):
-        pass
-
-    @abstractmethod
-    def get_ss(self):
-        pass
-
-    @abstractmethod
-    def fit(self, ss):
         pass
 
 
@@ -116,10 +108,6 @@ class Model(metaclass=ABCMeta):
 
     @abstractclassmethod
     def load(cls, filename):
-        pass
-
-    @abstractclassmethod
-    def default_model(cls, p1, m, n):
         pass
 
     @abstractmethod

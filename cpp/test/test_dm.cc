@@ -1,4 +1,4 @@
-#include "bcpm.hpp"
+#include "bcpm_dm.hpp"
 
 using namespace std;
 using namespace pml;

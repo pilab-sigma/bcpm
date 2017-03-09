@@ -29,7 +29,6 @@ class Potential {
 
 // ----------- MODEL ----------- //
 
-template <class P>
 class Model{
 
   public:
@@ -60,6 +59,10 @@ class Model{
       set_p1(p1_);
     }
 
+    virtual ~Model(){
+      delete prior;
+    }
+
   public:
     void set_p1(double p1_new){
       p1 = p1_new;
@@ -67,19 +70,15 @@ class Model{
       log_p0 = std::log(1-p1);
     }
 
-    virtual P obs2Potential(const Vector &obs){
-      return prior.obs2Potential(obs);
-    }
-
   public:
     Data generateData(size_t length){
       Data data;
-      Vector state = prior.rand();
+      Vector state = prior->rand();
       Bernoulli bernoulli(p1);
       for (size_t t=0; t<length; t++) {
         int change = 0;
         if (t > 0 && bernoulli.rand()) {
-          state = prior.rand();
+          state = prior->rand();
           change = 1;
         }
         data.states.appendColumn(state);
@@ -90,6 +89,7 @@ class Model{
     }
 
   public:
+    virtual Potential* obs2Potential(const Vector &obs) = 0;
     virtual Vector rand(const Vector &state) const = 0;
     virtual void fit(const Vector &ss, double p1_new) = 0;
     virtual void saveTxt(const std::string &filename) const = 0;
@@ -97,13 +97,12 @@ class Model{
     virtual void print() const = 0;
 
   public:
-    P prior;
+    Potential *prior;
     double p1, log_p1, log_p0;
 };
 
 // ----------- Message ----------- //
 
-template <class P>
 class Message {
 
   public:
@@ -111,27 +110,27 @@ class Message {
       return potentials.size();
     }
 
-    void add_potential(const P &potential){
+    void add_potential(Potential &potential){
       potentials.push_back(potential);
     }
 
-    void add_potential(const P &potential, double log_c){
+    void add_potential(Potential &potential, double log_c){
       potentials.push_back(potential);
-      potentials.back().log_c = log_c;
+      potentials.back()->log_c = log_c;
     }
 
-    friend Message<P> operator*(const Message<P> &m1, const Message<P> &m2){
+    friend Message<P> operator*(const Message &m1, const Message &m2){
       Message<P> msg;
-      for(auto &pot1 : m1.potentials)
-        for(auto &pot2 : m2.potentials)
-          msg.add_potential(pot1 * pot2);
+      for(Potential *p1 : m1.potentials)
+        for(Potential *p2 : m2.potentials)
+          msg.add_potential((*p1) * (*p2));
       return msg;
     }
 
     Vector mean() const {
       Matrix params;
-      for(auto &potential: potentials)
-        params.appendColumn(potential.mean());
+      for(Potential *p: potentials)
+        params.appendColumn(p->mean());
       return dot(params, normalizeExp(get_consts()));
     }
 
@@ -148,6 +147,7 @@ class Message {
 
 
     void prune(size_t max_components){
+      /*
       while(size() > max_components){
         // Find mininum no-change element
         auto iter = std::min_element(potentials.begin(), potentials.end()-1);
@@ -158,6 +158,7 @@ class Message {
         // Delete minimum component.
         potentials.pop_back();
       }
+       */
     }
 
     double log_likelihood() const {
@@ -167,13 +168,13 @@ class Message {
     Vector get_consts() const {
       Vector consts(potentials.size());
       for(size_t i = 0; i < potentials.size(); ++i){
-        consts[i] = potentials[i].log_c;
+        consts[i] = potentials[i]->log_c;
       }
       return consts;
     }
 
   public:
-    std::vector<P> potentials;
+    std::vector<Potential*> potentials;
 
 };
 
@@ -275,14 +276,10 @@ class Evaluator{
 
 // ----------- FORWARD-BACKWARD ----------- //
 
-template <class P>
 class ForwardBackward {
 
-  using ModelType = Model<P>;
-  using MessageType = Message<P>;
-
   public:
-    ForwardBackward(ModelType *model_, int max_components_ = 100)
+    ForwardBackward(Model *model_, int max_components_ = 100)
         :model(model_), max_components(max_components_){
       alpha.clear();
       alpha_predict.clear();
@@ -290,14 +287,15 @@ class ForwardBackward {
     }
 
   public:
-    MessageType predict(const Message<P>& prev){
-      MessageType message = prev;
+    Message predict(const Message& prev){
+      Message message = prev;
       Vector consts;
-      for(auto &potential : message.potentials){
-        consts.append(potential.log_c);
-        potential.log_c += model->log_p0;
+      for(Potential *p : message.potentials){
+        consts.append(p->log_c);
+        p->log_c += model->log_p0;
       }
-      message.add_potential(model->prior, model->log_p1 + logSumExp(consts));
+      message.add_potential(model->getChangePotential(logSumExp(consts)));
+      // message.add_potential(model->prior, model->log_p1 + );
       return message;
     }
 
@@ -315,9 +313,8 @@ class ForwardBackward {
 
     MessageType update(const MessageType &prev, const Vector &obs){
       MessageType message = prev;
-      for(auto &potential : message.potentials) {
-        potential *= model->obs2Potential(obs);
-      }
+      for(Potential *p : message.potentials)
+        (*p) *= model->obs2Potential(obs);
       return message;
     }
 
@@ -356,8 +353,8 @@ class ForwardBackward {
       // Predict step
       if (alpha_predict.empty()) {
         Message<P> message;
-        message.add_potential(model->prior, model->log_p0);
-        message.add_potential(model->prior, model->log_p1);
+        message.add_potential(model->getNoChangePotential());
+        message.add_potential(model->getChangePotential());
         alpha_predict.push_back(message);
       }
       else {
@@ -381,15 +378,15 @@ class ForwardBackward {
         if(!beta.empty()){
           // Predict for case s_t = 1, calculate constant only
           MessageType temp = beta.back();
-          for(auto &potential : temp.potentials){
-            potential *= model->prior;
+          for(Potential *p : temp.potentials){
+            (*p) *= model->prior;
           }
           c = model->log_p1 + temp.log_likelihood();
 
           // Update :
           message = update(beta.back(), obs.getColumn(idx));
-          for(auto &potential : message.potentials){
-            potential.log_c += model->log_p0;
+          for(Potential *p : message.potentials){
+            p->log_c += model->log_p0;
           }
         }
         P pot = model->obs2Potential(obs.getColumn(idx));

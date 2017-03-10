@@ -5,6 +5,47 @@
 
 using namespace pml;
 
+
+/*
+ * Change Point Data Structure
+ *
+ * There are 3 data structures for the change point process
+ *
+ *  cps    : change points binary vector denoting change positions
+ *  states : D x N hidden state matrix.
+ *  obs    : K x N observation matrix.
+ *
+ *  N = number of epochs
+ *  D = dimension of the state vector
+ *  K = dimension of the observation vector
+ *
+ * */
+class ChangePointData {
+
+  public:
+    // Saves the data matrices to the folder "dirname"
+    // The fodler is created if it does not exist
+    void saveTxt(const std::string &dirname){
+      find_or_create(dirname);
+      obs.saveTxt(make_path({dirname, "obs.txt"}));
+      states.saveTxt(make_path({dirname, "states.txt"}));
+      cps.saveTxt(make_path({dirname, "cps.txt"}));
+    }
+
+    // Loads the data matrices from folder "dirname"
+    ChangePointData(const std::string &dirname){
+      obs = Matrix::loadTxt(make_path({dirname, "obs.txt"}));
+      states = Matrix::loadTxt(make_path({dirname, "states.txt"}));
+      cps = Vector::loadTxt(make_path({dirname, "cps.txt"}));
+    }
+
+  public:
+    Matrix obs;
+    Matrix states;
+    Vector cps;
+};
+
+
 // ----------- POTENTIAL ----------- //
 
 class Potential {
@@ -12,47 +53,118 @@ class Potential {
   public:
     explicit Potential(double log_c_) : log_c(log_c_) {}
 
+    virtual ~Potential() {}
+
   public:
-    bool operator<(const Potential &other) const{
-      return this->log_c < other.log_c;
+    bool operator<(const Potential &that) const{
+      return log_c < that.log_c;
+    }
+
+    bool operator>(const Potential &that) const{
+      return log_c > that.log_c;
     }
 
   public:
+    // Multiplication of two potentials
+    virtual void operator*=(const Potential &p) = 0;
+    virtual Potential* operator*(const Potential &p) const = 0;
+
+  public:
+    // Draw a random state vector from the potential
     virtual Vector rand() const = 0;
+
+    // Returns the mean of the underlying distribution
     virtual Vector mean() const = 0;
+
+    // Get sufficient statistics for the underlyting distribution
     virtual Vector get_ss() const = 0;
 
   public:
     double log_c;
 };
 
+// ----------- MESSAGE ----------- //
+
+bool cmp_potentials(const Potential *p1, const Potential *p2) {
+  return (*p1) > (*p2);
+}
+
+class Message {
+
+  public:
+    Message(size_t max_components_ = 0 ) : max_components(max_components_){}
+
+    // Returns number of potentials
+    size_t size() const {
+      return potentials.size();
+    }
+
+    // Adds a potential with or without pruning
+    void add_potential(Potential *p){
+      potentials.push_back(p);
+      // Prune if max_components is defined
+      // First component is the change component, so the heap starts
+      // from the second potential
+      if( max_components > 0 ) {
+        std::push_heap(++potentials.begin(), potentials.end(), cmp_potentials);
+        if( potentials.size() > max_components ) {
+          Potential *p = potentials.back();
+          potentials.pop_back();
+          delete p;
+        }
+      }
+    }
+
+    friend Message operator*(const Message &m1, const Message &m2){
+      Message msg;
+      for(Potential *p1 : m1.potentials)
+        for(Potential *p2 : m2.potentials)
+          msg.add_potential((*p1) * (*p2));
+      return msg;
+    }
+
+    Vector get_log_c() const {
+      Vector log_c(potentials.size());
+      for(size_t i = 0; i < potentials.size(); ++i)
+        log_c[i] = potentials[i]->log_c;
+      return log_c;
+    }
+
+    // Relative probability of potentials
+    Vector get_rpp() const {
+      normalizeExp(get_log_c());
+    }
+
+    double log_likelihood() const {
+      return logSumExp(get_log_c());
+    }
+
+  public:
+    double get_cpp(size_t num_cpp = 1) const {
+      Vector rpp = get_rpp();
+      double result = 0;
+      for(size_t i=0; i < num_cpp; ++i)
+        result += rpp[i];
+      return result;
+    }
+
+    Vector get_mean() const {
+      Matrix params;
+      for(Potential *p: potentials)
+        params.appendColumn(p->mean());
+      return dot(params, normalizeExp(get_consts()));
+    }
+
+  public:
+    size_t max_components;
+    std::vector<Potential*> potentials;
+
+};
+
 
 // ----------- MODEL ----------- //
 
 class Model{
-
-  public:
-    struct Data{
-
-      Data(){}
-
-      Data(const std::string &dir){
-        obs = Matrix::loadTxt(make_path({dir, "obs.txt"}));
-        states = Matrix::loadTxt(make_path({dir, "states.txt"}));
-        cps = Vector::loadTxt(make_path({dir, "cps.txt"}));
-      }
-
-      void saveTxt(const std::string &dir){
-        find_or_create(dir);
-        obs.saveTxt(make_path({dir, "obs.txt"}));
-        states.saveTxt(make_path({dir, "states.txt"}));
-        cps.saveTxt(make_path({dir, "cps.txt"}));
-      }
-
-      Matrix obs;
-      Matrix states;
-      Vector cps;
-    };
 
   public:
     explicit Model(double p1_){
@@ -71,8 +183,10 @@ class Model{
     }
 
   public:
-    Data generateData(size_t length){
-      Data data;
+
+    // Generates a change point process of length "length" from the model.
+    ChangePointData generateData(size_t length){
+      ChangePointData data;
       Vector state = prior->rand();
       Bernoulli bernoulli(p1);
       for (size_t t=0; t<length; t++) {
@@ -89,7 +203,10 @@ class Model{
     }
 
   public:
-    virtual Potential* obs2Potential(const Vector &obs) = 0;
+    virtual Potential* getChangePotential(double delta_log_c = 0) const = 0;
+    virtual Potential* getNoChangePotential(double delta_log_c = 0) const = 0;
+    virtual Potential* obs2Potential(const Vector &obs) const = 0;
+
     virtual Vector rand(const Vector &state) const = 0;
     virtual void fit(const Vector &ss, double p1_new) = 0;
     virtual void saveTxt(const std::string &filename) const = 0;
@@ -101,82 +218,6 @@ class Model{
     double p1, log_p1, log_p0;
 };
 
-// ----------- Message ----------- //
-
-class Message {
-
-  public:
-    size_t size() const {
-      return potentials.size();
-    }
-
-    void add_potential(Potential &potential){
-      potentials.push_back(potential);
-    }
-
-    void add_potential(Potential &potential, double log_c){
-      potentials.push_back(potential);
-      potentials.back()->log_c = log_c;
-    }
-
-    friend Message<P> operator*(const Message &m1, const Message &m2){
-      Message<P> msg;
-      for(Potential *p1 : m1.potentials)
-        for(Potential *p2 : m2.potentials)
-          msg.add_potential((*p1) * (*p2));
-      return msg;
-    }
-
-    Vector mean() const {
-      Matrix params;
-      for(Potential *p: potentials)
-        params.appendColumn(p->mean());
-      return dot(params, normalizeExp(get_consts()));
-    }
-
-    double cpp(int num_cpp = 1) const {
-      Vector consts = normalizeExp(get_consts());
-      if(num_cpp == 1){
-        return consts.last();
-      }
-      double result = 0;
-      for(size_t i = consts.size()-num_cpp; i < consts.size(); ++i)
-        result += consts[i];
-      return result;
-    }
-
-
-    void prune(size_t max_components){
-      /*
-      while(size() > max_components){
-        // Find mininum no-change element
-        auto iter = std::min_element(potentials.begin(), potentials.end()-1);
-        // Swap the last two elements to save the order of the change comp.
-        std::swap(*(potentials.end()-1), *(potentials.end()-2));
-        // Swap last element with the minimum compoment.
-        std::swap(*iter, potentials.back());
-        // Delete minimum component.
-        potentials.pop_back();
-      }
-       */
-    }
-
-    double log_likelihood() const {
-      return logSumExp(get_consts());
-    }
-
-    Vector get_consts() const {
-      Vector consts(potentials.size());
-      for(size_t i = 0; i < potentials.size(); ++i){
-        consts[i] = potentials[i]->log_c;
-      }
-      return consts;
-    }
-
-  public:
-    std::vector<Potential*> potentials;
-
-};
 
 // ----------- RESULT ----------- //
 
@@ -288,7 +329,17 @@ class ForwardBackward {
 
   public:
     Message predict(const Message& prev){
-      Message message = prev;
+
+      Message next(MAX_COMPONENTS);
+      // add change component
+      next.add_potential(model->getChangePotential(prev.log_likelihood()));
+      // add no-change components
+      for(const Potential *p : prev.potentials)
+        msg_next.add_potential(Potential(p.alpha, p.a, p.b, p.log_c + log_p0));
+      //return next;
+
+
+      Message message(max_components);
       Vector consts;
       for(Potential *p : message.potentials){
         consts.append(p->log_c);
@@ -299,22 +350,12 @@ class ForwardBackward {
       return message;
     }
 
-    /*
-    MessageType predict(const Message<P>& prev){
-      MessageType message;
-      P potential;
-      potential.fit(compute_ss(prev));
-      double ll = prev.log_likelihood();
-      message.add_potential(potential, model->log_p0 + ll);
-      message.add_potential(model->prior, model->log_p1 + ll);
-      return message;
-    }
-    */
-
-    MessageType update(const MessageType &prev, const Vector &obs){
-      MessageType message = prev;
+    Message update(const Message &prev, const Vector &obs){
+      Message message = prev;
+      Potential *p_obs = model->obs2Potential(obs);
       for(Potential *p : message.potentials)
-        (*p) *= model->obs2Potential(obs);
+        (*p) *= *p_obs ;
+      delete p_obs;
       return message;
     }
 
@@ -343,16 +384,14 @@ class ForwardBackward {
     void forward(const Matrix& obs){
       alpha.clear();
       alpha_predict.clear();
-      for (size_t i=0; i<obs.ncols(); i++) {
+      for (size_t i=0; i<obs.ncols(); i++)
         oneStepForward(obs.getColumn(i));
-        alpha.back().prune(max_components);
-      }
     }
 
     void oneStepForward(const Vector& obs) {
       // Predict step
       if (alpha_predict.empty()) {
-        Message<P> message;
+        Message message(max_components);
         message.add_potential(model->getNoChangePotential());
         message.add_potential(model->getChangePotential());
         alpha_predict.push_back(message);
@@ -372,16 +411,16 @@ class ForwardBackward {
         idx = obs.ncols()-1;
       }
       beta.clear();
-      MessageType message;
+      Message message(max_components);
       for(size_t t = 0; t < steps; ++t, --idx){
-        double c = 0;
+        double delta_log_c = 0;
         if(!beta.empty()){
           // Predict for case s_t = 1, calculate constant only
-          MessageType temp = beta.back();
+          Message temp = beta.back();
           for(Potential *p : temp.potentials){
-            (*p) *= model->prior;
+            (*p) *= *model->prior;
           }
-          c = model->log_p1 + temp.log_likelihood();
+          delta_log_c = model->log_p1 + temp.log_likelihood();
 
           // Update :
           message = update(beta.back(), obs.getColumn(idx));
@@ -389,9 +428,9 @@ class ForwardBackward {
             p->log_c += model->log_p0;
           }
         }
-        P pot = model->obs2Potential(obs.getColumn(idx));
-        pot.log_c += c;
-        message.add_potential(pot);
+        Potential *p = model->obs2Potential(obs.getColumn(idx));
+        p->log_c += delta_log_c;
+        message.add_potential(p);
         message.prune(max_components);
         beta.push_back(message);
       }
@@ -407,7 +446,7 @@ class ForwardBackward {
       // Calculate Smoothed density
       Result result;
       for(size_t i=0; i < obs.ncols(); ++i) {
-        MessageType gamma = alpha_predict[i] * beta[i];
+        Message gamma = alpha_predict[i] * beta[i];
         result.mean.appendColumn(gamma.mean());
         result.cpp.append(gamma.cpp(beta[i].size()));
       }
@@ -430,7 +469,7 @@ class ForwardBackward {
         return smoothing(obs, evaluator);
 
       Result result;
-      MessageType gamma;
+      Message gamma;
 
       // Go forward
       forward(obs);
@@ -459,12 +498,12 @@ class ForwardBackward {
       return result;
     }
 
-    Vector compute_ss(const MessageType &message) {
+    Vector compute_ss(const Message &message) {
       Matrix tmp;
       Vector norm_consts;
-      for(auto &potential : message.potentials){
-        norm_consts.append(potential.log_c);
-        tmp.appendColumn( potential.get_ss() );
+      for(Potential *p : message.potentials){
+        norm_consts.append(p->log_c);
+        tmp.appendColumn( p->get_ss() );
       }
       norm_consts = normalizeExp(norm_consts);
       return dot(tmp, norm_consts);
@@ -488,7 +527,7 @@ class ForwardBackward {
         Vector cpp(T);
         Matrix ss;
         for(size_t i=0; i < T; ++i) {
-          MessageType gamma = alpha_predict[i] * beta[i];
+          Message gamma = alpha_predict[i] * beta[i];
           cpp(i) = gamma.cpp(beta[i].size());
           ss.appendColumn(compute_ss(gamma));
         }
@@ -529,13 +568,13 @@ class ForwardBackward {
 
 
   public:
-    ModelType *model;
+    Model *model;
     int max_components;
 
   private:
-    std::vector<MessageType> alpha;
-    std::vector<MessageType> alpha_predict;
-    std::vector<MessageType> beta;
+    std::vector<Message> alpha;
+    std::vector<Message> alpha_predict;
+    std::vector<Message> beta;
 
 };
 

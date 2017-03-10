@@ -30,7 +30,7 @@ int main(){
   // Generate Forward-Backward
   Matrix mean;
   Vector cpp;
-  DM_ForwardBackward fb(&model);
+  ForwardBackward fb(&model);
 
   // Filtering
   std::cout << "Filtering...\n";

@@ -14,32 +14,30 @@ class DirichletPotential : public Potential {
     DirichletPotential(const Vector& alpha_, double log_c_ = 0)
         : Potential(log_c_), alpha(alpha_) {}
 
+    DirichletPotential(const DirichletPotential &that)
+        : Potential(that.log_c), alpha(that.alpha) {}
+
     static DirichletPotential rand_gen(size_t K, double precision = 1){
       Vector alpha = normalize(Uniform().rand(K)) * precision;
       return DirichletPotential(alpha);
     }
 
   public:
-    void operator*=(const DirichletPotential &p){
-      *this = this->operator*(p);
+
+    void operator*=(const Potential &p) override {
+      DirichletPotential *pp = (DirichletPotential*) &p;
+      double delta_log_c = gammaln(sum(alpha)) - sum(gammaln(alpha)) +
+                           gammaln(sum(pp->alpha)) - sum(gammaln(pp->alpha)) +
+                           sum(gammaln(alpha + pp->alpha-1)) -
+                           gammaln(sum(alpha + pp->alpha -1));
+      alpha += pp->alpha - 1;
+      log_c += pp->log_c + delta_log_c;
     }
 
-
-    DirichletPotential operator*(const DirichletPotential &p) const{
-
-      double delta = gammaln(sum(alpha)) - sum(gammaln(alpha)) +
-                     gammaln(sum(p.alpha)) - sum(gammaln(p.alpha)) +
-                     sum(gammaln(alpha + p.alpha-1)) -
-                     gammaln(sum(alpha + p.alpha -1));
-
-      return DirichletPotential(alpha + p.alpha - 1,
-                                log_c + p.log_c + delta);
-    }
-
-    DirichletPotential obs2Potential(const Vector& obs) const{
-      double log_c = gammaln(sum(obs)+1)
-                     - gammaln(sum(obs)+obs.size());
-      return DirichletPotential(obs+1, log_c);
+    Potential* operator*(const Potential &p) const override {
+      DirichletPotential *result = new DirichletPotential(*this);
+      result->operator*=(p);
+      return result;
     }
 
   public:
@@ -70,51 +68,72 @@ class DirichletPotential : public Potential {
 
 
 
-class DM_Model: public Model<DirichletPotential> {
+class DM_Model: public Model {
 
   public:
     DM_Model(const Vector &alpha, double p1_,
              bool fixed_precision = false) : Model( p1_) {
-      prior = DirichletPotential(alpha);
+      prior = new DirichletPotential(alpha);
       precision = fixed_precision ? sum(alpha) : 0;
+    }
+
+    ~DM_Model(){
+      delete prior;
     }
 
     Vector rand(const Vector &state) const override {
       return Multinomial(state, 20).rand();
     }
 
+    Potential* getNoChangePotential(double delta_log_c = 0) const override {
+      return new DirichletPotential(
+          ((DirichletPotential*)prior)->alpha, log_p0 + delta_log_c);
+    }
+
+    Potential* getChangePotential(double delta_log_c = 0) const override {
+      return new DirichletPotential(
+          ((DirichletPotential*)prior)->alpha, log_p1 + delta_log_c);
+    }
+
     void fit(const Vector &ss, double p1_new) override {
-      prior.fit(ss, precision);
+      ((DirichletPotential*)prior)->fit(ss, precision);
       set_p1(p1_new);
     }
 
+    Potential* obs2Potential(const Vector& obs) const override{
+      double log_c = gammaln(sum(obs)+1) - gammaln(sum(obs)+obs.size());
+      return new DirichletPotential(obs+1, log_c);
+    }
+
     void saveTxt(const std::string &filename) const override{
+      /*
       const int txt_precision = 10;
       Vector temp;
       temp.append(p1);
-      temp.append(prior.alpha);
+      temp.append(((DirichletPotential *)prior)->alpha);
       temp.append(precision == 0);
       temp.saveTxt(filename, txt_precision);
+      */
     }
 
     void loadTxt(const std::string &filename){
+      /*
       Vector temp = Vector::loadTxt(filename);
       set_p1(temp(0));
-      prior = DirichletPotential(temp.getSlice(1, temp.size()-1));
+      prior = new DirichletPotential(temp.getSlice(1, temp.size()-1));
       precision = temp.last() ? sum(prior.alpha) : 0;
+      */
     }
 
     void print() const override{
-      std::cout << "DM_Model: \n";
-      std::cout << "\talpha = " << prior.alpha << std::endl;
-      std::cout << "\tp1 = " << p1 << std::endl;
-      std::cout << "\tfixed_precision = " << (int)(precision == 0) << "\n";
+      std::cout << "DM_Model: \n\talpha = "
+                << ((DirichletPotential*)prior)->alpha << std::endl
+                << "\tp1 = " << p1 << std::endl
+                << "\tfixed_precision = " << (int)(precision == 0) << "\n";
     }
 
   public:
     double precision;
 };
-
-using DM_ForwardBackward = ForwardBackward<DirichletPotential>;
 
 #endif //BCPM_DM_H_

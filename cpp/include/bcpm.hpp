@@ -115,7 +115,6 @@ class Message {
     Message(size_t max_components_ = 0 ) : max_components(max_components_){}
 
     ~Message(){
-      std::cout << "p size: " << potentials.size() << std::endl;
       for(Potential *p : potentials)
         delete p;
     }
@@ -168,6 +167,7 @@ class Message {
           delete potentials[1];
           // Pop minimum element in the heap.
           std::pop_heap(++potentials.begin(), potentials.end(), greater_than);
+          potentials.pop_back();
         }
       }
     }
@@ -413,7 +413,6 @@ class ForwardBackward {
     Result filtering(const Matrix& obs, Evaluator *evaluator = nullptr) {
       // Run forward
       forward(obs);
-      std::cout <<"forward done\n";
 
       // Calculate mean and cpp
       Result result;
@@ -435,7 +434,6 @@ class ForwardBackward {
       alpha.clear();
       alpha_predict.clear();
       for (size_t i=0; i<obs.ncols(); i++) {
-        std::cout << i << std::endl;
         oneStepForward(obs.getColumn(i));
       }
     }

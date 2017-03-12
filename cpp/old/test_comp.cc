@@ -11,9 +11,11 @@ const size_t window = 1;
 
 size_t length = 100;
 double c = 0.01;
+
 double alpha_ = 5;
 double a_ = 10;
 double b_ = 5;
+
 size_t M = 5;
 size_t N = 3;
 
@@ -35,7 +37,8 @@ void test_comp() {
   COMP_ForwardBackward fb(&model);
   std::cout << "Filtering...\n";
   auto result =  fb.filtering(data.obs, &evaluator);
-  cout << result.cpp << endl;
+  cout << result.cpp << endl << sum(result.cpp) << endl;
+
   result.saveTxt("/tmp/filtering");
 }
 
@@ -97,9 +100,11 @@ void test_comp_pg() {
 
 int main(){
 
-  test_comp_dm();
+  test_comp();
 
-  test_comp_pg();
+  // test_comp_dm();
+
+  // test_comp_pg();
 
   return 0;
 }

@@ -23,6 +23,17 @@ using namespace pml;
 class ChangePointData {
 
   public:
+
+    // Default constructor.
+    ChangePointData(){}
+
+    // Loads the data matrices from folder "dirname"
+    ChangePointData(const std::string &dirname){
+      obs = Matrix::loadTxt(make_path({dirname, "obs.txt"}));
+      states = Matrix::loadTxt(make_path({dirname, "states.txt"}));
+      cps = Vector::loadTxt(make_path({dirname, "cps.txt"}));
+    }
+
     // Saves the data matrices to the folder "dirname"
     // The fodler is created if it does not exist
     void saveTxt(const std::string &dirname){
@@ -30,13 +41,6 @@ class ChangePointData {
       obs.saveTxt(make_path({dirname, "obs.txt"}));
       states.saveTxt(make_path({dirname, "states.txt"}));
       cps.saveTxt(make_path({dirname, "cps.txt"}));
-    }
-
-    // Loads the data matrices from folder "dirname"
-    ChangePointData(const std::string &dirname){
-      obs = Matrix::loadTxt(make_path({dirname, "obs.txt"}));
-      states = Matrix::loadTxt(make_path({dirname, "states.txt"}));
-      cps = Vector::loadTxt(make_path({dirname, "cps.txt"}));
     }
 
   public:
@@ -51,7 +55,7 @@ class ChangePointData {
 class Potential {
 
   public:
-    explicit Potential(double log_c_) : log_c(log_c_) {}
+    Potential(double log_c_ = 0) : log_c(log_c_) {}
 
     virtual ~Potential() {}
 
@@ -65,6 +69,9 @@ class Potential {
     }
 
   public:
+    // Clone the potential
+    virtual Potential* clone(double delta_log_c = 0) const = 0;
+
     // Multiplication of two potentials
     virtual void operator*=(const Potential &p) = 0;
     virtual Potential* operator*(const Potential &p) const = 0;
@@ -83,38 +90,89 @@ class Potential {
     double log_c;
 };
 
-// ----------- MESSAGE ----------- //
-
-bool cmp_potentials(const Potential *p1, const Potential *p2) {
+// Compares two potentials given their pointers.
+// Returns true if first potential is greater than the second.
+// This function is used for creating a Min-Heap structure for fast pruning.
+bool greater_than(const Potential *p1, const Potential *p2) {
   return (*p1) > (*p2);
 }
 
+// ----------- MESSAGE ----------- //
+
+/*
+ *  - Message holds the potentials for change and no-change probabilities.
+ *  - First K potentials belong to "change" probability.
+ *  - The rest belong to "no change" probability.
+ *  - The number of potentials are limited by "max_components"
+ *  - If max_components is set to a positive value, pruning is applied such
+ *    that the number of "no change" potentials are limited by "max_components-1"
+ *  - The deafult value of max_components is zero, meaning that no pruning is
+ *    applied.
+ */
 class Message {
 
   public:
     Message(size_t max_components_ = 0 ) : max_components(max_components_){}
 
-    // Returns number of potentials
+    ~Message(){
+      std::cout << "p size: " << potentials.size() << std::endl;
+      for(Potential *p : potentials)
+        delete p;
+    }
+
+    // Deep copy constructor for the Message object
+    Message(const Message &m){
+      max_components = m.max_components;
+      for(Potential *p : m.potentials)
+        potentials.push_back(p->clone());
+    }
+
+    // Move copy constructor for the Message object
+    Message(Message &&m){
+      max_components = m.max_components;
+      potentials = std::move(m.potentials);
+    }
+
+    // Deep copy assignment for the Message object
+    Message& operator=(const Message &m){
+      for(Potential *p : potentials)
+        delete p;
+      max_components = m.max_components;
+      for(Potential *p : m.potentials)
+        potentials.push_back(p->clone());
+      return *this;
+    }
+
+    // Move copy assignment for the Message object
+    Message& operator=(Message &&m){
+      for(Potential *p : potentials)
+        delete p;
+      max_components = m.max_components;
+      potentials = std::move(m.potentials);
+      return *this;
+    }
+
+    // Returns current number of potentials.
     size_t size() const {
       return potentials.size();
     }
 
-    // Adds a potential with or without pruning
+    // Add a new potential to the potentials list.
+    // If max_components is set, pruning is applied to "no change" potentials.
     void add_potential(Potential *p){
       potentials.push_back(p);
-      // Prune if max_components is defined
-      // First component is the change component, so the heap starts
-      // from the second potential
-      if( max_components > 0 ) {
-        std::push_heap(++potentials.begin(), potentials.end(), cmp_potentials);
+      if( max_components > 0 && potentials.size() > 1) {
+        std::push_heap(++potentials.begin(), potentials.end(), greater_than);
         if( potentials.size() > max_components ) {
-          Potential *p = potentials.back();
-          potentials.pop_back();
-          delete p;
+          // Physically delete the potential with minimum likelihood.
+          delete potentials[1];
+          // Pop minimum element in the heap.
+          std::pop_heap(++potentials.begin(), potentials.end(), greater_than);
         }
       }
     }
 
+    // Multiplies two Messages.
     friend Message operator*(const Message &m1, const Message &m2){
       Message msg;
       for(Potential *p1 : m1.potentials)
@@ -123,6 +181,7 @@ class Message {
       return msg;
     }
 
+    // Returns log normalizing constants of all potentials as a Vector
     Vector get_log_c() const {
       Vector log_c(potentials.size());
       for(size_t i = 0; i < potentials.size(); ++i)
@@ -130,29 +189,28 @@ class Message {
       return log_c;
     }
 
-    // Relative probability of potentials
-    Vector get_rpp() const {
-      normalizeExp(get_log_c());
-    }
-
+    // Returns the log likelihood of the message.
     double log_likelihood() const {
       return logSumExp(get_log_c());
     }
 
   public:
-    double get_cpp(size_t num_cpp = 1) const {
-      Vector rpp = get_rpp();
+    // Returns the change probability from the Message.
+    // It's the sum of first K conditional probabilities of potentials.
+    double cpp(size_t num_cpp = 1) const {
+      Vector rpp = normalizeExp(get_log_c());
       double result = 0;
       for(size_t i=0; i < num_cpp; ++i)
         result += rpp[i];
       return result;
     }
 
-    Vector get_mean() const {
+    // Returns the mean state vector.
+    Vector mean() const {
       Matrix params;
       for(Potential *p: potentials)
         params.appendColumn(p->mean());
-      return dot(params, normalizeExp(get_consts()));
+      return dot(params, normalizeExp(get_log_c()));
     }
 
   public:
@@ -164,6 +222,9 @@ class Message {
 
 // ----------- MODEL ----------- //
 
+/*
+ *  Abstract base class for Model.
+ */
 class Model{
 
   public:
@@ -329,34 +390,22 @@ class ForwardBackward {
 
   public:
     Message predict(const Message& prev){
-
-      Message next(MAX_COMPONENTS);
+      Message next(max_components);
       // add change component
       next.add_potential(model->getChangePotential(prev.log_likelihood()));
       // add no-change components
       for(const Potential *p : prev.potentials)
-        msg_next.add_potential(Potential(p.alpha, p.a, p.b, p.log_c + log_p0));
-      //return next;
-
-
-      Message message(max_components);
-      Vector consts;
-      for(Potential *p : message.potentials){
-        consts.append(p->log_c);
-        p->log_c += model->log_p0;
-      }
-      message.add_potential(model->getChangePotential(logSumExp(consts)));
-      // message.add_potential(model->prior, model->log_p1 + );
-      return message;
+        next.add_potential( p->clone(model->log_p0) );
+      return next;
     }
 
     Message update(const Message &prev, const Vector &obs){
-      Message message = prev;
+      Message next(prev);
       Potential *p_obs = model->obs2Potential(obs);
-      for(Potential *p : message.potentials)
+      for(Potential *p : next.potentials)
         (*p) *= *p_obs ;
       delete p_obs;
-      return message;
+      return next;
     }
 
     // ------------- FORWARD ------------- //
@@ -364,6 +413,7 @@ class ForwardBackward {
     Result filtering(const Matrix& obs, Evaluator *evaluator = nullptr) {
       // Run forward
       forward(obs);
+      std::cout <<"forward done\n";
 
       // Calculate mean and cpp
       Result result;
@@ -384,17 +434,18 @@ class ForwardBackward {
     void forward(const Matrix& obs){
       alpha.clear();
       alpha_predict.clear();
-      for (size_t i=0; i<obs.ncols(); i++)
+      for (size_t i=0; i<obs.ncols(); i++) {
+        std::cout << i << std::endl;
         oneStepForward(obs.getColumn(i));
+      }
     }
 
     void oneStepForward(const Vector& obs) {
       // Predict step
       if (alpha_predict.empty()) {
-        Message message(max_components);
-        message.add_potential(model->getNoChangePotential());
-        message.add_potential(model->getChangePotential());
-        alpha_predict.push_back(message);
+        alpha_predict.emplace_back(max_components);
+        alpha_predict.back().add_potential(model->getNoChangePotential());
+        alpha_predict.back().add_potential(model->getChangePotential());
       }
       else {
         alpha_predict.push_back(predict(alpha.back()));
@@ -431,7 +482,6 @@ class ForwardBackward {
         Potential *p = model->obs2Potential(obs.getColumn(idx));
         p->log_c += delta_log_c;
         message.add_potential(p);
-        message.prune(max_components);
         beta.push_back(message);
       }
       std::reverse(beta.begin(), beta.end());

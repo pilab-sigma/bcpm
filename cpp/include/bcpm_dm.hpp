@@ -24,6 +24,10 @@ class DirichletPotential : public Potential {
 
   public:
 
+    Potential* clone(double delta_log_c = 0) const override {
+      return new DirichletPotential(alpha, log_c + delta_log_c);
+    }
+
     void operator*=(const Potential &p) override {
       DirichletPotential *pp = (DirichletPotential*) &p;
       double delta_log_c = gammaln(sum(alpha)) - sum(gammaln(alpha)) +
@@ -77,10 +81,6 @@ class DM_Model: public Model {
       precision = fixed_precision ? sum(alpha) : 0;
     }
 
-    ~DM_Model(){
-      delete prior;
-    }
-
     Vector rand(const Vector &state) const override {
       return Multinomial(state, 20).rand();
     }
@@ -106,23 +106,19 @@ class DM_Model: public Model {
     }
 
     void saveTxt(const std::string &filename) const override{
-      /*
       const int txt_precision = 10;
       Vector temp;
       temp.append(p1);
       temp.append(((DirichletPotential *)prior)->alpha);
-      temp.append(precision == 0);
+      temp.append(precision);
       temp.saveTxt(filename, txt_precision);
-      */
     }
 
-    void loadTxt(const std::string &filename){
-      /*
+    void loadTxt(const std::string &filename) override {
       Vector temp = Vector::loadTxt(filename);
       set_p1(temp(0));
       prior = new DirichletPotential(temp.getSlice(1, temp.size()-1));
-      precision = temp.last() ? sum(prior.alpha) : 0;
-      */
+      precision = temp.last();
     }
 
     void print() const override{

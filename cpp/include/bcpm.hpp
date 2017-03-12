@@ -442,8 +442,8 @@ class ForwardBackward {
       // Predict step
       if (alpha_predict.empty()) {
         alpha_predict.emplace_back(max_components);
-        alpha_predict.back().add_potential(model->getNoChangePotential());
         alpha_predict.back().add_potential(model->getChangePotential());
+        alpha_predict.back().add_potential(model->getNoChangePotential());
       }
       else {
         alpha_predict.push_back(predict(alpha.back()));

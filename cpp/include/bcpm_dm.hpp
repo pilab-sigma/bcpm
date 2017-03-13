@@ -81,6 +81,10 @@ class DM_Model: public Model {
       precision = fixed_precision ? sum(alpha) : 0;
     }
 
+    ~DM_Model(){
+      delete prior;
+    }
+
     Vector randState() const override {
       return prior->rand();
     }

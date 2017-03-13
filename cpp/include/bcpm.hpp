@@ -127,7 +127,7 @@ class Message {
     }
 
     // Move copy constructor for the Message object
-    Message(Message &&m){
+    Message(Message &&m) noexcept {
       max_components = m.max_components;
       potentials = std::move(m.potentials);
     }
@@ -389,7 +389,8 @@ class ForwardBackward {
     Message predict(const Message& prev){
       Message next(max_components);
       // add change component
-      next.add_potential(model->getPrior()->clone(prev.log_likelihood()));
+      next.add_potential(
+          model->getPrior()->clone(prev.log_likelihood() + model->log_p1));
       // add no-change components
       for(const Potential *p : prev.potentials)
         next.add_potential( p->clone(model->log_p0) );
@@ -430,9 +431,8 @@ class ForwardBackward {
     void forward(const Matrix& obs){
       alpha.clear();
       alpha_predict.clear();
-      for (size_t i=0; i<obs.ncols(); i++) {
+      for (size_t i=0; i<obs.ncols(); i++)
         oneStepForward(obs.getColumn(i));
-      }
     }
 
     void oneStepForward(const Vector& obs) {
@@ -467,8 +467,9 @@ class ForwardBackward {
         if(!beta.empty()){
           // Predict for case s_t = 1, calculate constant only
           Message temp = beta.back();
+          Potential *model_prior = model->getPrior();
           for(Potential *p : temp.potentials){
-            (*p) *= *model->getPrior();
+            (*p) *= *model_prior;
           }
           delta_log_c = model->log_p1 + temp.log_likelihood();
 

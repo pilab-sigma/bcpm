@@ -168,7 +168,7 @@ void test_fb(){
   const size_t K = 5;
   const double precision = K;
   const bool fixed_precision = false;
-  const size_t length = 120;
+  const size_t length = 200;
   const double threshold = 0.99;
   const size_t window = 1;
 
@@ -193,7 +193,6 @@ void test_fb(){
 
   std::cout << "OK.\n";
 }
-
 
 int main(){
   test_potential();

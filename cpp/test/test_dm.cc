@@ -82,9 +82,11 @@ void test_potential() {
 
 void test_message() {
   std::cout << "test_message...\n";
+
   Message m;
   m.add_potential( new DirichletPotential(Uniform().rand(5)) );
-/*
+  m.add_potential( new DirichletPotential(Uniform().rand(5)) );
+
   // Test Copy Constructor
   Message m2(m);
   DirichletPotential *d1 = (DirichletPotential*) m.potentials[0];
@@ -101,7 +103,7 @@ void test_message() {
 
   // Test Move Copy
   Message m4(std::move(m));
-  assert(m4.potentials.size() == 1);
+  assert(m4.potentials.size() == 2);
   assert(m.potentials.size() == 0);
   DirichletPotential *d4 = (DirichletPotential*) m4.potentials[0];
   assert(d2->alpha.equals(d4->alpha));
@@ -111,7 +113,7 @@ void test_message() {
   // Test Move Assignment
   Message m5;
   m5 = std::move(m4);
-  assert(m5.potentials.size() == 1);
+  assert(m5.potentials.size() == 2);
   assert(m4.potentials.size() == 0);
   DirichletPotential *d5 = (DirichletPotential*) m5.potentials[0];
   assert(d2->alpha.equals(d4->alpha));
@@ -130,7 +132,6 @@ void test_message() {
   dv = (DirichletPotential*) v[0].potentials[0];
   assert(m5.potentials.size() == 0);
   assert(dv == d5);
-*/
 
   std::cout << "OK.\n";
 }
@@ -197,7 +198,7 @@ void test_fb(){
 int main(){
   test_potential();
   test_message();
-  //test_message_prune();
-  //test_fb();
+  test_message_prune();
+  test_fb();
   return 0;
 }

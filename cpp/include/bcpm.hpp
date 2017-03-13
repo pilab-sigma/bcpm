@@ -197,11 +197,11 @@ class Message {
   public:
     // Returns the change probability from the Message.
     // It's the sum of first K conditional probabilities of potentials.
-    double cpp(size_t num_cpp = 1) const {
+    double cpp(size_t K = 1) const {
       Vector rpp = normalizeExp(get_log_c());
       double result = 0;
-      for(size_t i=0; i < num_cpp; ++i)
-        result += rpp[i];
+      for(size_t k=0; k < K; ++k)
+        result += rpp[k];
       return result;
     }
 
@@ -232,9 +232,7 @@ class Model{
       set_p1(p1_);
     }
 
-    virtual ~Model(){
-      delete prior;
-    }
+    virtual ~Model(){}
 
   public:
     void set_p1(double p1_new){
@@ -248,34 +246,33 @@ class Model{
     // Generates a change point process of length "length" from the model.
     ChangePointData generateData(size_t length){
       ChangePointData data;
-      Vector state = prior->rand();
+      Vector state = randState();
       Bernoulli bernoulli(p1);
       for (size_t t=0; t<length; t++) {
         int change = 0;
         if (t > 0 && bernoulli.rand()) {
-          state = prior->rand();
+          state = randState();
           change = 1;
         }
         data.states.appendColumn(state);
-        data.obs.appendColumn(rand(state));
+        data.obs.appendColumn(randObservation(state));
         data.cps.append(change);
       }
       return data;
     }
 
   public:
-    virtual Potential* getChangePotential(double delta_log_c = 0) const = 0;
-    virtual Potential* getNoChangePotential(double delta_log_c = 0) const = 0;
+    virtual Potential* getPrior() = 0;
     virtual Potential* obs2Potential(const Vector &obs) const = 0;
 
-    virtual Vector rand(const Vector &state) const = 0;
+    virtual Vector randState() const = 0;
+    virtual Vector randObservation(const Vector &state) const = 0;
     virtual void fit(const Vector &ss, double p1_new) = 0;
     virtual void saveTxt(const std::string &filename) const = 0;
     virtual void loadTxt(const std::string &filename) = 0;
     virtual void print() const = 0;
 
   public:
-    Potential *prior;
     double p1, log_p1, log_p0;
 };
 
@@ -392,7 +389,7 @@ class ForwardBackward {
     Message predict(const Message& prev){
       Message next(max_components);
       // add change component
-      next.add_potential(model->getChangePotential(prev.log_likelihood()));
+      next.add_potential(model->getPrior()->clone(prev.log_likelihood()));
       // add no-change components
       for(const Potential *p : prev.potentials)
         next.add_potential( p->clone(model->log_p0) );
@@ -442,8 +439,12 @@ class ForwardBackward {
       // Predict step
       if (alpha_predict.empty()) {
         alpha_predict.emplace_back(max_components);
-        alpha_predict.back().add_potential(model->getChangePotential());
-        alpha_predict.back().add_potential(model->getNoChangePotential());
+        // add change potential
+        alpha_predict.back().add_potential(
+            model->getPrior()->clone(model->log_p1));
+        // add no change potential
+        alpha_predict.back().add_potential(
+            model->getPrior()->clone(model->log_p0));
       }
       else {
         alpha_predict.push_back(predict(alpha.back()));
@@ -467,7 +468,7 @@ class ForwardBackward {
           // Predict for case s_t = 1, calculate constant only
           Message temp = beta.back();
           for(Potential *p : temp.potentials){
-            (*p) *= *model->prior;
+            (*p) *= *model->getPrior();
           }
           delta_log_c = model->log_p1 + temp.log_likelihood();
 

@@ -81,18 +81,16 @@ class DM_Model: public Model {
       precision = fixed_precision ? sum(alpha) : 0;
     }
 
-    Vector rand(const Vector &state) const override {
+    Vector randState() const override {
+      return prior->rand();
+    }
+
+    Vector randObservation(const Vector &state) const override {
       return Multinomial(state, 20).rand();
     }
 
-    Potential* getNoChangePotential(double delta_log_c = 0) const override {
-      return new DirichletPotential(
-          ((DirichletPotential*)prior)->alpha, log_p0 + delta_log_c);
-    }
-
-    Potential* getChangePotential(double delta_log_c = 0) const override {
-      return new DirichletPotential(
-          ((DirichletPotential*)prior)->alpha, log_p1 + delta_log_c);
+    Potential* getPrior() override {
+      return prior;
     }
 
     void fit(const Vector &ss, double p1_new) override {
@@ -129,6 +127,7 @@ class DM_Model: public Model {
     }
 
   public:
+    DirichletPotential* prior;
     double precision;
 };
 

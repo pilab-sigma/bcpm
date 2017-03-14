@@ -70,7 +70,7 @@ class Potential {
 
   public:
     // Clone the potential
-    virtual Potential* clone(double delta_log_c = 0) const = 0;
+    virtual Potential* clone() const = 0;
 
     // Multiplication of two potentials
     virtual void operator*=(const Potential &p) = 0;
@@ -404,11 +404,15 @@ class ForwardBackward {
     Message predict(const Message& prev){
       Message next(max_components);
       // add change component
-      next.add_potential(
-          model->getPrior()->clone(prev.log_likelihood() + model->log_p1));
+      Potential *p_change = model->getPrior()->clone();
+      p_change->log_c = prev.log_likelihood() + model->log_p1;
+      next.add_potential(p_change);
       // add no-change components
-      for(const Potential *p : prev.potentials)
-        next.add_potential( p->clone(model->log_p0) );
+      for(const Potential *p : prev.potentials){
+        Potential *p_no_change = p->clone();
+        p_no_change->log_c += model->log_p0;
+        next.add_potential(p_no_change);
+      }
       return next;
     }
 
@@ -453,13 +457,16 @@ class ForwardBackward {
     void oneStepForward(const Vector& obs) {
       // Predict step
       if (alpha_predict.empty()) {
-        alpha_predict.emplace_back(max_components);
+        Message first_message(max_components);
         // add change potential
-        alpha_predict.back().add_potential(
-            model->getPrior()->clone(model->log_p1));
+        Potential *p_change = model->getPrior()->clone();
+        p_change->log_c = model->log_p1;
+        first_message.add_potential(p_change);
         // add no change potential
-        alpha_predict.back().add_potential(
-            model->getPrior()->clone(model->log_p0));
+        Potential *p_no_change = model->getPrior()->clone();
+        p_no_change->log_c = model->log_p0;
+        first_message.add_potential(p_no_change);
+        alpha_predict.push_back(std::move(first_message));
       }
       else {
         alpha_predict.push_back(predict(alpha.back()));

@@ -69,7 +69,8 @@ void test_potential() {
   assert(fequal(dm->log_c, dm2->log_c));
   assert( dm != dm2 );
 
-  DirichletPotential *dm3  = (DirichletPotential *) dm2->clone(-0.1);
+  DirichletPotential *dm3  = (DirichletPotential *) dm2->clone();
+  dm3->log_c += -0.1;
   assert(dm2->alpha.equals(dm3->alpha));
   assert(fequal(dm2->log_c - 0.1 , dm3->log_c));
   assert( dm2 != dm3 );

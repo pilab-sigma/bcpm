@@ -24,8 +24,8 @@ class DirichletPotential : public Potential {
 
   public:
 
-    Potential* clone(double delta_log_c = 0) const override {
-      return new DirichletPotential(alpha, log_c + delta_log_c);
+    Potential* clone() const override {
+      return new DirichletPotential(*this);
     }
 
     void operator*=(const Potential &p) override {

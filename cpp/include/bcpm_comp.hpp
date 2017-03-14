@@ -27,30 +27,41 @@ class CompoundPotential : public Potential {
       }
     }
 
+    CompoundPotential(const CompoundPotential& that)
+        : Potential(that.log_c), alpha(that.alpha),
+          a(that.a), b(that.b), M(that.M), N(that.N){}
+
   public:
-    void operator*=(const CompoundPotential &other){
-      *this = *this * other;
+
+    Potential* clone() const override {
+      return new CompoundPotential(*this);
     }
 
-    friend CompoundPotential operator*(const CompoundPotential &p1,
-                                    const CompoundPotential &p2) {
-      CompoundPotential p = p1;
-      p.log_c += p2.log_c;
-      if( p.alpha.size() > 0){
-        p.alpha += p2.alpha - 1;
-        p.log_c += gammaln(sum(p1.alpha)) - sum(gammaln(p1.alpha)) +
-                   gammaln(sum(p2.alpha)) - sum(gammaln(p2.alpha)) +
-                   sum(gammaln(p1.alpha + p2.alpha-1)) -
-                   gammaln(sum(p1.alpha + p2.alpha -1));
+    void operator*=(const Potential &p) override {
+      CompoundPotential* pp = (CompoundPotential*) &p;
+      log_c += pp->log_c;
+      if( M > 0 ){
+        log_c += gammaln(sum(alpha)) - sum(gammaln(alpha)) +
+                 gammaln(sum(pp->alpha)) - sum(gammaln(pp->alpha)) +
+                 sum(gammaln(alpha + pp->alpha-1)) -
+                 gammaln(sum(alpha + pp->alpha -1));
+        alpha += pp->alpha - 1;
       }
-      if( p.a.size() > 0){
-        p.a += p2.a - 1;
-        p.b = (p1.b * p2.b) / (p1.b + p2.b);
-        p.log_c += sum(gammaln(p.a)) + sum(p.a * log(p.b))
-                   - sum(gammaln(p1.a)) - sum(p1.a * log(p1.b))
-                   - sum(gammaln(p2.a)) - sum(p2.a * log(p2.b));
+      if( N > 0 ){
+        Vector a_ = a + pp->a - 1;
+        Vector b_ = (b * pp->b) / (b + pp->b);
+        log_c += sum(gammaln(a_)) + sum(a * log(b_))
+                 - sum(gammaln(a)) - sum(a * log(b))
+                 - sum(gammaln(pp->a)) - sum(pp->a * log(pp->b));
+        this->a  = a_;
+        this->b  = b_;
       }
-      return p;
+    }
+
+    Potential* operator*(const Potential &p) const override {
+      CompoundPotential *result = new CompoundPotential(*this);
+      result->operator*=(p);
+      return result;
     }
 
   public:
@@ -70,20 +81,6 @@ class CompoundPotential : public Potential {
       if(N > 0)
         mean.append(a*b);
       return mean;
-    }
-
-    CompoundPotential obs2Potential(const Vector& obs) const{
-      CompoundPotential p(M, N);
-      if(M > 0){
-        Vector obs_alpha = obs.getSlice(0, M);
-        p.alpha =  obs_alpha + 1;
-        p.log_c = gammaln(sum(obs_alpha)+1) - gammaln(sum(obs_alpha)+M);
-      }
-      if(N > 0) {
-        p.a = obs.getSlice(M, M+N) +1;
-        p.b = Vector::ones(N);
-      }
-      return p;
     }
 
     Vector get_ss() const override {
@@ -117,23 +114,34 @@ class CompoundPotential : public Potential {
     Vector alpha;
     Vector a;
     Vector b;
-    double log_c;
     size_t M; // = alpha.size()
     size_t N; // = a.size()
 };
 
 
-class COMP_Model : public Model<CompoundPotential> {
+class COMP_Model : public Model{
 
   public:
     COMP_Model(Vector alpha, Vector a, Vector b, double p1_)
         :Model(p1_) {
-      prior = CompoundPotential(alpha, a, b);
+      prior = new CompoundPotential(alpha, a, b);
       M = alpha.size();
       N = a.size();
     }
 
-    Vector rand(const Vector &state) const override {
+    ~COMP_Model(){
+      delete prior;
+    }
+
+    const Potential* getPrior() override {
+      return prior;
+    }
+
+    Vector randState() const override {
+      return prior->rand();
+    }
+
+    Vector randObservation(const Vector &state) const override {
       Vector result;
       if (M > 0)
         result = Multinomial(state.getSlice(0, M), 100).rand();
@@ -142,8 +150,22 @@ class COMP_Model : public Model<CompoundPotential> {
       return result;
     }
 
+    Potential* obs2Potential(const Vector& obs) const override{
+      CompoundPotential *p = new CompoundPotential(M, N);
+      if(M > 0){
+        Vector obs_alpha = obs.getSlice(0, M);
+        p->alpha =  obs_alpha + 1;
+        p->log_c = gammaln(sum(obs_alpha)+1) - gammaln(sum(obs_alpha)+M);
+      }
+      if(N > 0) {
+        p->a = obs.getSlice(M, M+N) +1;
+        p->b = Vector::ones(N);
+      }
+      return p;
+    }
+
     void fit(const Vector &ss, double p1_new) override {
-      prior.fit(ss);
+      prior->fit(ss);
       set_p1(p1_new);
     }
 
@@ -153,9 +175,9 @@ class COMP_Model : public Model<CompoundPotential> {
       temp.append(p1);
       temp.append(M);
       temp.append(N);
-      temp.append(prior.alpha);
-      temp.append(prior.a);
-      temp.append(prior.b);
+      temp.append(prior->alpha);
+      temp.append(prior->a);
+      temp.append(prior->b);
       temp.saveTxt(filename, precision);
     }
 
@@ -167,20 +189,20 @@ class COMP_Model : public Model<CompoundPotential> {
       Vector alpha = temp.getSlice(3, M+3);
       Vector a = temp.getSlice(M+3, M+N+3);
       Vector b = temp.getSlice(M+N+3, M+N+N+3);
-      prior = CompoundPotential(alpha, a, b);
+      prior = new CompoundPotential(alpha, a, b);
     }
 
     void print() const override{
       std::cout << "COMP_Model:\n";
-      std::cout << "alpha = " << prior.alpha << "\ta = " << prior.a
-      << "\tb = " << prior.b << "\tp1 = " << p1 << std::endl;
+      std::cout << "alpha = " << prior->alpha << "\ta = " << prior->a
+      << "\tb = " << prior->b << "\tp1 = " << p1 << std::endl;
     }
 
   public:
     size_t M;
     size_t N;
+    CompoundPotential *prior;
 };
 
-using COMP_ForwardBackward = ForwardBackward<CompoundPotential>;
 
 #endif //BCPM_BCPM_COMP_H

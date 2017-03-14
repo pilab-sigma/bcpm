@@ -10,23 +10,31 @@ class GammaPotential : public Potential {
     GammaPotential(double a_ = 1, double b_ = 1, double log_c_ = 0)
         : Potential(log_c_), a(a_), b(b_){}
 
+    GammaPotential(const GammaPotential &that)
+        : Potential(that.log_c), a(that.a), b(that.b) {}
+
   public:
-    void operator*=(const GammaPotential &other){
-      *this = *this * other;
+
+    Potential* clone() const override {
+      return new GammaPotential(*this);
     }
 
-    friend GammaPotential operator*(const GammaPotential &g1,
-                                    const GammaPotential &g2) {
-      double a = g1.a + g2.a - 1;
-      double b = (g1.b * g2.b) / (g1.b + g2.b);
-      double log_c = gammaln(a) + a * std::log(b)
-                     - gammaln(g1.a) - g1.a * std::log(g1.b)
-                     - gammaln(g2.a) - g2.a * std::log(g2.b);
-      return GammaPotential(a, b, g1.log_c + g2.log_c + log_c);
+    void operator*=(const Potential &p) override {
+      GammaPotential *pp = (GammaPotential*) &p;
+      double a_ = a + pp->a - 1;
+      double b_ = (b * pp->b) / (b + pp->b);
+      double log_c_ = gammaln(a_) + a * std::log(b_)
+                     - gammaln(a) - a * std::log(b)
+                     - gammaln(pp->a) - pp->a * std::log(pp->b);
+      this->a  = a_;
+      this->b  = b_;
+      this->log_c += pp->log_c + log_c_;
     }
 
-    GammaPotential obs2Potential(const Vector& obs) const {
-      return GammaPotential(obs.first()+1, 1);
+    Potential* operator*(const Potential &p) const override {
+      GammaPotential *result = new GammaPotential(*this);
+      result->operator*=(p);
+      return result;
     }
 
   public:
@@ -47,7 +55,6 @@ class GammaPotential : public Potential {
       << "  log_c: " << log_c << std::endl;
     }
 
-
     void fit(const Vector &ss, double scale = 0){
       Gamma g_est = Gamma::fit(ss[0], ss[1], scale);
       a = g_est.a;
@@ -60,22 +67,37 @@ class GammaPotential : public Potential {
 };
 
 
-
-class PG_Model : public Model<GammaPotential> {
+class PG_Model : public Model {
 
   public:
     PG_Model(double a, double b, double p1_, bool fixed_scale = false)
         :Model(p1_) {
-      prior = GammaPotential(a, b);
+      prior = new GammaPotential(a, b);
       scale = fixed_scale ? b : 0;
     }
 
-    Vector rand(const Vector &state) const override {
+    ~PG_Model(){
+      delete prior;
+    }
+
+    const Potential* getPrior() override {
+      return prior;
+    }
+
+    Vector randState() const override {
+      return prior->rand();
+    }
+
+    Vector randObservation(const Vector &state) const override {
       return Poisson(state.first()).rand(1);
     }
 
+    Potential* obs2Potential(const Vector& obs) const override{
+      return new GammaPotential(obs.first()+1, 1);
+    }
+
     void fit(const Vector &ss, double p1_new) override {
-      prior.fit(ss, scale);
+      prior->fit(ss, scale);
       set_p1(p1_new);
     }
 
@@ -83,29 +105,32 @@ class PG_Model : public Model<GammaPotential> {
       const int precision = 10;
       Vector temp;
       temp.append(p1);
-      temp.append(prior.a);
-      temp.append(prior.b);
-      temp.append((int)(scale == 0));
+      temp.append(prior->a);
+      temp.append(prior->b);
+      temp.append(scale);
       temp.saveTxt(filename, precision);
     }
 
     void loadTxt(const std::string &filename) override{
       Vector temp = Vector::loadTxt(filename);
       set_p1(temp(0));
-      prior = GammaPotential(temp(1), temp(2));
-      scale = temp(3) ? prior.b : 0;
+      if( prior )
+        delete prior;
+      prior = new GammaPotential(temp(1), temp(2));
+      scale = temp(3);
     }
 
     void print() const override{
-      std::cout << "PG_Model:\n";
-      std::cout << "a = " << prior.a << "\tb = " << prior.b << "\tp1 = " << p1
-      << "\tfixed_scale = " << (int)(scale == 0) << std::endl;
+      std::cout << "PG_Model:\n"
+                << "a = " << prior->a
+                << "\tb = " << prior->b
+                << "\tp1 = " << p1
+                << "\tfixed_scale = " << (int)(scale == 0) << std::endl;
     }
 
   public:
     double scale;
+    GammaPotential *prior;
 };
-
-using PG_ForwardBackward = ForwardBackward<GammaPotential>;
 
 #endif //BCPM_PG_H_

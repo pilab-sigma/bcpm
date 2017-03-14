@@ -17,11 +17,6 @@ class DirichletPotential : public Potential {
     DirichletPotential(const DirichletPotential &that)
         : Potential(that.log_c), alpha(that.alpha) {}
 
-    static DirichletPotential rand_gen(size_t K, double precision = 1){
-      Vector alpha = normalize(Uniform().rand(K)) * precision;
-      return DirichletPotential(alpha);
-    }
-
   public:
 
     Potential* clone() const override {
@@ -57,7 +52,6 @@ class DirichletPotential : public Potential {
       return psi(alpha) - psi(sum(alpha));
     }
 
-
     void print() const{
       std::cout << alpha << " log_c:" << log_c << std::endl;
     }
@@ -69,7 +63,6 @@ class DirichletPotential : public Potential {
   public:
     Vector alpha;
 };
-
 
 
 class DM_Model: public Model {
@@ -85,6 +78,10 @@ class DM_Model: public Model {
       delete prior;
     }
 
+    const Potential* getPrior() override {
+      return prior;
+    }
+
     Vector randState() const override {
       return prior->rand();
     }
@@ -93,18 +90,14 @@ class DM_Model: public Model {
       return Multinomial(state, 20).rand();
     }
 
-    const Potential* getPrior() override {
-      return prior;
-    }
-
-    void fit(const Vector &ss, double p1_new) override {
-      ((DirichletPotential*)prior)->fit(ss, precision);
-      set_p1(p1_new);
-    }
-
     Potential* obs2Potential(const Vector& obs) const override{
       double log_c = gammaln(sum(obs)+1) - gammaln(sum(obs)+obs.size());
       return new DirichletPotential(obs+1, log_c);
+    }
+
+    void fit(const Vector &ss, double p1_new) override {
+      prior->fit(ss, precision);
+      set_p1(p1_new);
     }
 
     void saveTxt(const std::string &filename) const override{
@@ -119,6 +112,8 @@ class DM_Model: public Model {
     void loadTxt(const std::string &filename) override {
       Vector temp = Vector::loadTxt(filename);
       set_p1(temp(0));
+      if (prior)
+        delete prior;
       prior = new DirichletPotential(temp.getSlice(1, temp.size()-1));
       precision = temp.last();
     }

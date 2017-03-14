@@ -23,7 +23,7 @@ int main(){
   data.saveTxt("/tmp");
 
   // Estimate with true parameters
-  PG_ForwardBackward fb(&model);
+  ForwardBackward fb(&model);
 
   Evaluator evaluator(data.cps, threshold, window);
 

@@ -93,7 +93,7 @@ class DM_Model: public Model {
       return Multinomial(state, 20).rand();
     }
 
-    Potential* getPrior() override {
+    const Potential* getPrior() override {
       return prior;
     }
 

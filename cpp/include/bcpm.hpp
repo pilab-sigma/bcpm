@@ -262,14 +262,29 @@ class Model{
     }
 
   public:
-    virtual Potential* getPrior() = 0;
+    // The model generates a random state vector
+    virtual Vector randState() const = 0;
+
+    // The model generates a random observation given its state
+    virtual Vector randObservation(const Vector &state) const = 0;
+
+    // Model returns its a constant pointer to its prior
+    virtual const Potential* getPrior() = 0;
+
+    // Model generates a new Potential from its observation
     virtual Potential* obs2Potential(const Vector &obs) const = 0;
 
-    virtual Vector randState() const = 0;
-    virtual Vector randObservation(const Vector &state) const = 0;
+    // Given sufficient statistics, update model parameters via maximum
+    // likelihood. Also update change probability p1
     virtual void fit(const Vector &ss, double p1_new) = 0;
+
+    // Save the model into a single text file.
     virtual void saveTxt(const std::string &filename) const = 0;
+
+    // Load mode from a single text file.
     virtual void loadTxt(const std::string &filename) = 0;
+
+    // Print model parameters
     virtual void print() const = 0;
 
   public:
@@ -467,7 +482,7 @@ class ForwardBackward {
         if(!beta.empty()){
           // Predict for case s_t = 1, calculate constant only
           Message temp = beta.back();
-          Potential *model_prior = model->getPrior();
+          const Potential *model_prior = model->getPrior();
           for(Potential *p : temp.potentials){
             (*p) *= *model_prior;
           }

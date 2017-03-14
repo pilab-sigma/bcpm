@@ -5,25 +5,26 @@
 using namespace std;
 using namespace pml;
 
-/*
-int main(){
+
+void test_dm(){
   cout << "test_dm...\n";
 
-  size_t K = 5;
-  double precision = K;
-  bool fixed_precision = false;
-  Vector alpha = normalize(Vector::ones(K)) * precision;
-  double p1 = 0.01;
-
-  size_t lag = 10;
-  size_t length = 500;
+  const double p1 = 0.01;
+  const size_t K = 5;
+  const double precision = K;
+  const bool fixed_precision = false;
+  const size_t length = 200;
+  const double threshold = 0.99;
+  const size_t window = 1;
+  const size_t lag = 10;
 
   // Generate Model
+  const Vector alpha = normalize(Vector::ones(K)) * precision;
   DM_Model model(alpha, p1, fixed_precision);
 
   // Generate Sequence
   auto data = model.generateData(length);
-  data.saveTxt("/tmp");
+  data.saveTxt("/tmp/data");
 
   Evaluator evaluator(data.cps, threshold, window);
 
@@ -50,9 +51,8 @@ int main(){
   }
   cout << "OK.\n";
 
-  return 0;
+  return;
 }
- */
 
 void test_potential() {
   std::cout << "test_potential...\n";
@@ -160,44 +160,10 @@ void test_message_prune(){
 }
 
 
-void test_fb(){
-
-  std::cout << "test_fb...\n";
-
-  const double p1 = 0.01;
-  const size_t K = 5;
-  const double precision = K;
-  const bool fixed_precision = false;
-  const size_t length = 200;
-  const double threshold = 0.99;
-  const size_t window = 1;
-
-  // Generate Model
-  Vector alpha = normalize(Vector::ones(K)) * precision;
-  DM_Model model(alpha, p1, fixed_precision);
-
-  // Generate Sequence
-  auto data = model.generateData(length);
-  data.saveTxt("/tmp/data");
-
-  // Evaluator
-  Evaluator evaluator(data.cps, threshold, window);
-
-  // Forward - Backward
-  ForwardBackward fb(&model);
-
-  // Filtering
-  std::cout << "Filtering...\n";
-  auto result =  fb.filtering(data.obs, &evaluator);
-  result.saveTxt("/tmp/filtering2");
-
-  std::cout << "OK.\n";
-}
-
 int main(){
   test_potential();
   test_message();
   test_message_prune();
-  test_fb();
+  test_dm();
   return 0;
 }

@@ -52,7 +52,7 @@ void test_dm(const string &base_dir){
 }
 
 void visualize(const string &python_exec){
-  const std::string cmd = python_exec + " ../visualize2/test_dm.py";
+  const std::string cmd = python_exec + " ../visualize/test_dm.py";
   if(system(cmd.c_str()))
     std::cout <<"visualization error...\n";
 }

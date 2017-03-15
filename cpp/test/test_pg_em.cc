@@ -24,7 +24,7 @@ int main(){
   Evaluator evaluator(data.cps, threshold, window);
 
   // Smoothing with true parameters
-  PG_ForwardBackward fb(&model);
+  ForwardBackward fb(&model);
   Result result = fb.smoothing(data.obs, &evaluator);
   result.saveTxt("/tmp");
 
@@ -35,7 +35,7 @@ int main(){
 
   PG_Model init_model(init_a, init_b, init_p1, fixed_scale);
   PG_Model em_model = init_model;
-  PG_ForwardBackward fb_em(&em_model);
+  ForwardBackward fb_em(&em_model);
 
   // Run initial model:
   result = fb_em.smoothing(data.obs, &evaluator);

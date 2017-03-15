@@ -20,7 +20,7 @@ int main(){
 
   // Generate sequence
   auto data = model.generateData(length);
-  data.saveTxt("/tmp");
+  data.saveTxt("/tmp/data");
 
   // Estimate with true parameters
   ForwardBackward fb(&model);
@@ -41,7 +41,7 @@ int main(){
   result = fb.online_smoothing(data.obs, lag, &evaluator);
   result.saveTxt("/tmp/online_smoothing");
 
-  if(system("anaconda3 ../test/python/test_bcpm_pg.py False")){
+  if(system("anaconda3 ../visualize/test_pg_em.py False")){
     std::cout <<"plotting error...\n";
   }
   cout << "OK.\n";

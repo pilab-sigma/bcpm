@@ -151,7 +151,7 @@ void test_dm(){
   result = fb.online_smoothing(data.obs, lag, &evaluator);
   result.saveTxt("/tmp/online_smoothing");
 
-  if(system("anaconda3 ../test/visualize/test_bcpm_dm.py False")){
+  if(system("anaconda3 ../visualize/test_dm.py")){
     std::cout <<"plotting error...\n";
   }
   cout << "OK.\n";

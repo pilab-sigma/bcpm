@@ -24,14 +24,14 @@ int main(){
 
   // Generate sequence
   auto data = model.generateData(length);
-  data.saveTxt("/tmp");
+  data.saveTxt("/tmp/data");
 
   Evaluator evaluator(data.cps, threshold, window);
 
   // Estimate with true parameters
   ForwardBackward fb(&model);
   auto result = fb.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp");
+  result.saveTxt("/tmp/true");
 
   // Learn parameters
   double c_init = 0.0001;
@@ -59,7 +59,8 @@ int main(){
   em_model.print();
   std::cout << "-----------\n";
 
-  if(system("anaconda3 ../test/python/test_bcpm_dm.py True")){
+
+  if(system("anaconda3 ../visualize/test_dm_em.py")){
     std::cout <<"plotting error...\n";
   }
 

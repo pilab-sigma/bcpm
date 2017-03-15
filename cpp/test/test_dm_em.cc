@@ -29,16 +29,16 @@ int main(){
   Evaluator evaluator(data.cps, threshold, window);
 
   // Estimate with true parameters
-  DM_ForwardBackward fb(&model);
+  ForwardBackward fb(&model);
   auto result = fb.smoothing(data.obs, &evaluator);
   result.saveTxt("/tmp");
 
   // Learn parameters
   double c_init = 0.0001;
-  DM_Model em_model(DirichletPotential::rand_gen(K, precision).alpha,
+  DM_Model em_model(Dirichlet(Vector::ones(K)).rand() * precision,
                     c_init, fixed_precision);
   DM_Model em_init_model = em_model;
-  DM_ForwardBackward fb_em(&em_model);
+  ForwardBackward fb_em(&em_model);
 
   // Run with EM inital
   result = fb_em.smoothing(data.obs, &evaluator);

@@ -5,55 +5,6 @@
 using namespace std;
 using namespace pml;
 
-
-void test_dm(){
-  cout << "test_dm...\n";
-
-  const double p1 = 0.01;
-  const size_t K = 5;
-  const double precision = K;
-  const bool fixed_precision = false;
-  const size_t length = 200;
-  const double threshold = 0.99;
-  const size_t window = 1;
-  const size_t lag = 10;
-
-  // Generate Model
-  const Vector alpha = normalize(Vector::ones(K)) * precision;
-  DM_Model model(alpha, p1, fixed_precision);
-
-  // Generate Sequence
-  auto data = model.generateData(length);
-  data.saveTxt("/tmp/data");
-
-  Evaluator evaluator(data.cps, threshold, window);
-
-  // Generate Forward-Backward
-  ForwardBackward fb(&model);
-
-  // Filtering
-  std::cout << "Filtering...\n";
-  auto result =  fb.filtering(data.obs, &evaluator);
-  result.saveTxt("/tmp/filtering");
-
-  // Smoothing
-  std::cout << "Smoothing...\n";
-  result = fb.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp/smoothing");
-
-  // Fixed Lag
-  std::cout << "Online smoothing...\n";
-  result = fb.online_smoothing(data.obs, lag, &evaluator);
-  result.saveTxt("/tmp/online_smoothing");
-
-  if(system("anaconda3 ../test/python/test_bcpm_dm.py False")){
-    std::cout <<"plotting error...\n";
-  }
-  cout << "OK.\n";
-
-  return;
-}
-
 void test_potential() {
   std::cout << "test_potential...\n";
 
@@ -160,11 +111,58 @@ void test_message_prune(){
   std::cout << "OK.\n";
 }
 
+void test_dm(){
+  cout << "test_dm...\n";
+
+  const double p1 = 0.01;
+  const size_t K = 5;
+  const double precision = K;
+  const bool fixed_precision = false;
+  const size_t length = 200;
+  const double threshold = 0.99;
+  const size_t window = 1;
+  const size_t lag = 10;
+
+  // Generate Model
+  const Vector alpha = normalize(Vector::ones(K)) * precision;
+  DM_Model model(alpha, p1, fixed_precision);
+
+  // Generate Sequence
+  auto data = model.generateData(length);
+  data.saveTxt("/tmp/data");
+
+  Evaluator evaluator(data.cps, threshold, window);
+
+  // Generate Forward-Backward
+  ForwardBackward fb(&model);
+
+  // Filtering
+  std::cout << "Filtering...\n";
+  auto result =  fb.filtering(data.obs, &evaluator);
+  result.saveTxt("/tmp/filtering");
+
+  // Smoothing
+  std::cout << "Smoothing...\n";
+  result = fb.smoothing(data.obs, &evaluator);
+  result.saveTxt("/tmp/smoothing");
+
+  // Fixed Lag
+  std::cout << "Online smoothing...\n";
+  result = fb.online_smoothing(data.obs, lag, &evaluator);
+  result.saveTxt("/tmp/online_smoothing");
+
+  if(system("anaconda3 ../test/visualize/test_bcpm_dm.py False")){
+    std::cout <<"plotting error...\n";
+  }
+  cout << "OK.\n";
+
+  return;
+}
 
 int main(){
-  test_potential();
-  test_message();
-  test_message_prune();
+  //test_potential();
+  //test_message();
+  //test_message_prune();
   test_dm();
   return 0;
 }

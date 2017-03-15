@@ -29,18 +29,18 @@ class ChangePointData {
 
     // Loads the data matrices from folder "dirname"
     ChangePointData(const std::string &dirname){
-      obs = Matrix::loadTxt(make_path({dirname, "obs.txt"}));
-      states = Matrix::loadTxt(make_path({dirname, "states.txt"}));
-      cps = Vector::loadTxt(make_path({dirname, "cps.txt"}));
+      obs = Matrix::loadTxt(path_join({dirname, "obs.txt"}));
+      states = Matrix::loadTxt(path_join({dirname, "states.txt"}));
+      cps = Vector::loadTxt(path_join({dirname, "cps.txt"}));
     }
 
     // Saves the data matrices to the folder "dirname"
     // The fodler is created if it does not exist
     void saveTxt(const std::string &dirname){
       find_or_create(dirname);
-      obs.saveTxt(make_path({dirname, "obs.txt"}));
-      states.saveTxt(make_path({dirname, "states.txt"}));
-      cps.saveTxt(make_path({dirname, "cps.txt"}));
+      obs.saveTxt(path_join({dirname, "obs.txt"}));
+      states.saveTxt(path_join({dirname, "states.txt"}));
+      cps.saveTxt(path_join({dirname, "cps.txt"}));
     }
 
   public:
@@ -299,10 +299,10 @@ class Result{
   public:
     void saveTxt(const std::string &dir){
       find_or_create(dir);
-      mean.saveTxt(make_path({dir, "mean.txt"}));
-      cpp.saveTxt(make_path({dir, "cpp.txt"}));
-      ll.saveTxt(make_path({dir, "ll.txt"}));
-      score.saveTxt(make_path({dir, "score.txt"}));
+      mean.saveTxt(path_join({dir, "mean.txt"}));
+      cpp.saveTxt(path_join({dir, "cpp.txt"}));
+      ll.saveTxt(path_join({dir, "ll.txt"}));
+      score.saveTxt(path_join({dir, "score.txt"}));
     }
 
     void append(const Vector &s){

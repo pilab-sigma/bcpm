@@ -59,11 +59,6 @@ int main(){
   em_model.print();
   std::cout << "-----------\n";
 
-
-  if(system("anaconda3 ../visualize/test_dm_em.py")){
-    std::cout <<"plotting error...\n";
-  }
-
   cout << "OK.\n";
 
   return 0;

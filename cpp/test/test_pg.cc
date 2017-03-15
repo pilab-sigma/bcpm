@@ -4,16 +4,15 @@ using namespace std;
 using namespace pml;
 
 
-const double threshold = 0.99;
-const size_t window = 1;
-
-int main(){
-
+void test_pg(const string &base_dir){
   cout << "test_pg...\n";
-  size_t length = 1000;
-  double c = 0.01;
-  double a = 10;
-  double b = 1;
+
+  const double threshold = 0.99;
+  const size_t window = 1;
+  const double c = 0.01;
+  const double a = 10;
+  const double b = 1;
+  const size_t length = 1000;
 
   // Generate model:
   PG_Model model(a, b, c);
@@ -29,22 +28,36 @@ int main(){
 
   std::cout << "Filtering...\n";
   auto result = fb.filtering(data.obs, &evaluator);
-  result.saveTxt("/tmp/filtering");
+  result.saveTxt(path_join({base_dir, "filtering"}));
 
   std::cout << "Smoothing...\n";
   result = fb.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp/smoothing");
-
+  result.saveTxt(path_join({base_dir, "smoothing"}));
 
   std::cout << "Online smoothing...\n";
   size_t lag = 10;
   result = fb.online_smoothing(data.obs, lag, &evaluator);
-  result.saveTxt("/tmp/online_smoothing");
+  result.saveTxt(path_join({base_dir, "online_smoothing"}));
 
-  if(system("anaconda3 ../visualize/test_pg_em.py False")){
-    std::cout <<"plotting error...\n";
-  }
   cout << "OK.\n";
+}
+
+void visualize(const string &python_exec){
+  const std::string cmd = python_exec + " ../visualize2/test_pg.py";
+  if(system(cmd.c_str()))
+    std::cout <<"visualization error...\n";
+}
+
+
+int main(int argc, char *argv[]){
+
+  test_pg("/tmp");
+
+  // Visualize
+  std::string python_exec = "python";
+  if(argc == 2)
+    python_exec = argv[1];
+  visualize(python_exec);
 
   return 0;
 }

@@ -56,9 +56,6 @@ int main(){
   em_model.print();
   std::cout << "-----------\n";
 
-  if(system("anaconda3 ../test/python/test_bcpm_pg.py True")){
-    std::cout <<"plotting error...\n";
-  }
   cout << "OK.\n";
 
   return 0;

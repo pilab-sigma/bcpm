@@ -69,7 +69,6 @@ void test_comp_dm() {
 
 }
 
-
 void test_comp_pg() {
   cout << "\ncompound & pg comparison ...\n";
   Vector alpha = Vector::ones(0);
@@ -96,7 +95,6 @@ void test_comp_pg() {
   std::cout << "difference of cpps:\n" << result_comp.cpp-result_pg.cpp << std::endl;
 
 }
-
 
 int main(){
 

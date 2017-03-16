@@ -14,6 +14,7 @@ add_executable(test_pg_em test_pg_em.cc)
 add_executable(test_old_comp ../old/test_comp.cc)
 
 add_executable(test_comp test_comp.cc)
+add_executable(test_comp2 test_comp2.cc)
 
 add_executable(test_old_bcpm test_old_bcpm.cc)
 

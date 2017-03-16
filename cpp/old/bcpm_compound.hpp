@@ -218,16 +218,16 @@ struct Data{
   Data(){}
 
   Data(const std::string &dir){
-    obs = Matrix::loadTxt(make_path({dir, "obs.txt"}));
-    states = Matrix::loadTxt(make_path({dir, "states.txt"}));
-    cps = Vector::loadTxt(make_path({dir, "cps.txt"}));
+    obs = Matrix::loadTxt(path_join({dir, "obs.txt"}));
+    states = Matrix::loadTxt(path_join({dir, "states.txt"}));
+    cps = Vector::loadTxt(path_join({dir, "cps.txt"}));
   }
 
   void saveTxt(const std::string &dir){
     find_or_create(dir);
-    obs.saveTxt(make_path({dir, "obs.txt"}));
-    states.saveTxt(make_path({dir, "states.txt"}));
-    cps.saveTxt(make_path({dir, "cps.txt"}));
+    obs.saveTxt(path_join({dir, "obs.txt"}));
+    states.saveTxt(path_join({dir, "states.txt"}));
+    cps.saveTxt(path_join({dir, "cps.txt"}));
   }
 
   Matrix obs;
@@ -240,10 +240,10 @@ class Result{
   public:
     void saveTxt(const std::string &dir){
       find_or_create(dir);
-      mean.saveTxt(make_path({dir, "mean.txt"}));
-      cpp.saveTxt(make_path({dir, "cpp.txt"}));
-      ll.saveTxt(make_path({dir, "ll.txt"}));
-      score.saveTxt(make_path({dir, "score.txt"}));
+      mean.saveTxt(path_join({dir, "mean.txt"}));
+      cpp.saveTxt(path_join({dir, "cpp.txt"}));
+      ll.saveTxt(path_join({dir, "ll.txt"}));
+      score.saveTxt(path_join({dir, "score.txt"}));
     }
 
     void append(const Vector &s){

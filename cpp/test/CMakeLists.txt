@@ -18,3 +18,5 @@ add_executable(test_compound1 test_compound1.cc)
 add_executable(test_compound2 test_compound2.cc)
 add_executable(test_compound3 test_compound3.cc)
 
+add_executable(runner runner.cc)
+

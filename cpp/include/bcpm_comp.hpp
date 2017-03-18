@@ -197,8 +197,10 @@ class COMP_Model : public Model{
       temp.saveTxt(filename, precision);
     }
 
-    void loadTxt(const std::string &filename) override{
+    void loadTxt(const std::string &filename) override {
+      std::cout << filename << std::endl;
       Vector temp = Vector::loadTxt(filename);
+      std::cout << temp << std::endl;
       set_p1(temp(0));
       M = temp(1);
       N = temp(2);

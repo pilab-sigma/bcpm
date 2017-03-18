@@ -476,35 +476,32 @@ class ForwardBackward {
     }
 
     // ------------- BACKWARD ------------- //
-    void backward(const Matrix& obs, size_t idx = 0, size_t steps = 0){
+    void backward(const Matrix& obs, size_t start = 0, size_t steps = 0){
       // Start from column "idx" and go back for "steps" steps
-      if(steps == 0 ){
+      if (steps == 0) {
         steps = obs.ncols();
-        idx = obs.ncols()-1;
+        start = obs.ncols() - 1;
       }
       beta.clear();
-      Message message(max_components);
-      for(size_t t = 0; t < steps; ++t, --idx){
-        double delta_log_c = 0;
-        if(!beta.empty()){
-          // Predict for case s_t = 1, calculate constant only
-          Message temp = beta.back();
-          const Potential *model_prior = model->getPrior();
-          for(Potential *p : temp.potentials){
-            (*p) *= *model_prior;
-          }
-          delta_log_c = model->log_p1 + temp.log_likelihood();
-
-          // Update :
-          message = update(beta.back(), obs.getColumn(idx));
-          for(Potential *p : message.potentials){
+      for (size_t i = 0; i < steps; ++i) {
+        Message msg(max_components);
+        Message temp(max_components);
+        Potential *p_obs = model->obs2Potential(obs.getColumn(start - i));
+        // change
+        if (!beta.empty()) {
+          for (const Potential *p : beta.back().potentials)
+            temp.add_potential( (*p_obs) * (*p) );
+          p_obs->log_c += model->log_p1 + temp.log_likelihood();
+        }
+        msg.add_potential(p_obs);
+        // no change
+        if (!beta.empty()) {
+          for (Potential *p : temp.potentials) {
             p->log_c += model->log_p0;
+            msg.add_potential(p->clone());
           }
         }
-        Potential *p = model->obs2Potential(obs.getColumn(idx));
-        p->log_c += delta_log_c;
-        message.add_potential(p);
-        beta.push_back(message);
+        beta.push_back(msg);
       }
       std::reverse(beta.begin(), beta.end());
     }

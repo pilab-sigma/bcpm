@@ -50,7 +50,7 @@ class CompoundPotential : public Potential {
       if( N > 0 ){
         Vector a_ = a + pp->a - 1;
         Vector b_ = (b * pp->b) / (b + pp->b);
-        log_c += sum(gammaln(a_)) + sum(a * log(b_))
+        log_c += sum(gammaln(a_)) + sum(a_ * log(b_))
                  - sum(gammaln(a)) - sum(a * log(b))
                  - sum(gammaln(pp->a)) - sum(pp->a * log(pp->b));
         this->a  = a_;

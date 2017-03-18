@@ -19,6 +19,14 @@ double b_ = 5;
 size_t M = 5;
 size_t N = 3;
 
+
+void check_results(Result &r1, Result &r2){
+  assert(r1.mean.equals(r2.mean));
+  assert(r1.cpp.equals(r2.cpp));
+  assert(r1.ll.equals(r2.ll));
+  assert(r1.score.equals(r2.score));
+}
+
 void test_comp() {
   cout << "test_compound...\n";
   Vector alpha = Vector::ones(M)*alpha_;
@@ -27,6 +35,9 @@ void test_comp() {
 
   // Generate model:
   COMP_Model model(alpha, a, b, c);
+
+  // Generate Previous Model
+  Model model(c, Potential(alpha, a, b));
 
   // Generate Sequence
   auto data = model.generateData(length);
@@ -98,9 +109,9 @@ void test_comp_pg() {
 
 int main(){
 
-  test_comp();
+  //test_comp();
 
-  // test_comp_dm();
+  test_comp_dm();
 
   // test_comp_pg();
 

@@ -2,7 +2,7 @@
 
 #include <bcpm_dm.hpp>
 #include <bcpm_pg.hpp>
-#include "bcpm_comp.hpp"
+#include <bcpm_comp.hpp>
 
 using namespace std;
 using namespace pml;

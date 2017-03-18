@@ -29,7 +29,7 @@ void test_potential() {
   delete dm;
   delete dm2;
   delete dm3;
-  std::cout << "OK.\n";
+  std::cout << "done.\n";
 }
 
 void test_message() {
@@ -85,7 +85,7 @@ void test_message() {
   assert(m5.potentials.size() == 0);
   assert(dv == d5);
 
-  std::cout << "OK.\n";
+  std::cout << "done.\n";
 }
 
 void test_message_prune(){
@@ -108,7 +108,7 @@ void test_message_prune(){
   assert(m.potentials[1] == p3);
   assert(m.potentials[2] == p4);
 
-  std::cout << "OK.\n";
+  std::cout << "done.\n";
 }
 
 

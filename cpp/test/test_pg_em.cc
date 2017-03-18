@@ -6,7 +6,7 @@ using namespace pml;
 const double threshold = 0.99;
 const size_t window = 1;
 
-int main(){
+void test_pg_em(const std::string &base_dir){
   cout << "test_pg_em...\n";
   size_t length = 200;
   double p1 = 0.05;
@@ -19,14 +19,14 @@ int main(){
 
   // Generate Sequence
   auto data = model.generateData(length);
-  data.saveTxt("/tmp");
+  data.saveTxt(path_join({base_dir, "data"}));
 
   Evaluator evaluator(data.cps, threshold, window);
 
   // Smoothing with true parameters
   ForwardBackward fb(&model);
   Result result = fb.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp");
+  data.saveTxt(path_join({base_dir, "true"}));
 
   // Generate random model for EM
   double init_p1 = 0.001;
@@ -39,11 +39,11 @@ int main(){
 
   // Run initial model:
   result = fb_em.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp/initial");
+  data.saveTxt(path_join({base_dir, "initial"}));
 
   // Run EM:
   result = fb_em.learn_parameters(data.obs, &evaluator);
-  result.saveTxt("/tmp/final");
+  data.saveTxt(path_join({base_dir, "final"}));
 
   std::cout << "-----------\n";
   std::cout << "True model:\n";
@@ -56,7 +56,16 @@ int main(){
   em_model.print();
   std::cout << "-----------\n";
 
-  cout << "OK.\n";
+  cout << "done.\n";
+}
+
+int main(int argc, char *argv[]){
+
+  std::string base_dir = "/tmp";
+  if(argc == 2)
+    base_dir = argv[1];
+
+  test_pg_em(base_dir);
 
   return 0;
 }

@@ -74,8 +74,22 @@ class DM_Model: public Model {
       precision = fixed_precision ? sum(alpha) : 0;
     }
 
+    DM_Model(const DM_Model &model) : Model(model.p1) {
+      prior = (DirichletPotential*) model.prior->clone();
+      precision = model.precision;
+    }
+
     ~DM_Model(){
       delete prior;
+    }
+
+    DM_Model& operator=(const DM_Model &model){
+      if(prior)
+        delete prior;
+      set_p1(model.p1);
+      prior = (DirichletPotential*) model.prior->clone();
+      precision = model.precision;
+      return *this;
     }
 
     const Potential* getPrior() override {

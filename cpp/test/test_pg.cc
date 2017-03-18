@@ -5,7 +5,7 @@ using namespace pml;
 
 
 void test_pg(const string &base_dir){
-  cout << "test_pg...\n";
+  cout << "Testing PG Model...\n";
 
   const double threshold = 0.99;
   const size_t window = 1;
@@ -19,45 +19,39 @@ void test_pg(const string &base_dir){
 
   // Generate sequence
   auto data = model.generateData(length);
-  data.saveTxt("/tmp/data");
+  data.saveTxt(path_join({base_dir, "data"}));
 
   // Estimate with true parameters
   ForwardBackward fb(&model);
 
   Evaluator evaluator(data.cps, threshold, window);
 
-  std::cout << "Filtering...\n";
+  std::cout << "\tfiltering...\n";
   auto result = fb.filtering(data.obs, &evaluator);
   result.saveTxt(path_join({base_dir, "filtering"}));
 
-  std::cout << "Smoothing...\n";
+  std::cout << "\tsmoothing...\n";
   result = fb.smoothing(data.obs, &evaluator);
   result.saveTxt(path_join({base_dir, "smoothing"}));
 
-  std::cout << "Online smoothing...\n";
+  std::cout << "\tonline smoothing...\n";
   size_t lag = 10;
   result = fb.online_smoothing(data.obs, lag, &evaluator);
   result.saveTxt(path_join({base_dir, "online_smoothing"}));
 
-  cout << "OK.\n";
-}
+  cout << "done.\n\n"
+       << "For visualization run command:\n\n"
+       << "python ../visualize/test_pg.py " + base_dir << std::endl;
 
-void visualize(const string &python_exec){
-  const std::string cmd = python_exec + " ../visualize/test_pg.py";
-  if(system(cmd.c_str()))
-    std::cout <<"visualization error...\n";
 }
-
 
 int main(int argc, char *argv[]){
 
-  test_pg("/tmp");
-
-  // Visualize
-  std::string python_exec = "python";
+  std::string base_dir = "/tmp";
   if(argc == 2)
-    python_exec = argv[1];
-  visualize(python_exec);
+    base_dir = argv[1];
+
+  test_pg(base_dir);
 
   return 0;
 }

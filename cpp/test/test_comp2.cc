@@ -1,108 +1,71 @@
-#include <cassert>
-
 #include <bcpm_dm.hpp>
 #include <bcpm_pg.hpp>
-#include <bcpm_comp.hpp>
+#include "bcpm_comp.hpp"
 
 using namespace std;
 using namespace pml;
 
-void check_results(Result &r1, Result &r2){
-  assert(r1.mean.equals(r2.mean));
-  assert(r1.cpp.equals(r2.cpp));
-  assert(r1.ll.equals(r2.ll));
-  assert(r1.score.equals(r2.score));
-}
+const size_t M = 5;
+const size_t N = 3;
 
-void test_dm() {
 
-  std::cout << "Tesing DM Model...\n";
+void test_comp(const string &base_dir) {
 
-  const size_t M = 5;
-  const size_t length = 1000;
-  const double p1 = 0.01;
+  const double threshold = 0.99;
+  const size_t window = 1;
+
+  const size_t length = 100;
+  const double c = 0.01;
+
+  const double alpha_ = 5;
+  const double a_ = 10;
+  const double b_ = 5;
+
   const size_t lag = 10;
 
-  // Generate DM Model
-  const Vector alpha = Vector::ones(M);
-  DM_Model model_dm(alpha, p1);
-  ForwardBackward fb_dm(&model_dm);
 
-  // Generate Coupled Model with DM component only
-  COMP_Model model_comp(alpha, Vector(), Vector(), p1);
-  ForwardBackward fb_comp(&model_comp);
+  cout << "Testing compound model...\n";
+  Vector alpha = Vector::ones(M)*alpha_;
+  Vector a = Vector::ones(N)*a_;
+  Vector b = Vector::ones(N)*b_;
 
-  // Generate Data
-  auto data = model_dm.generateData(length);
+  // Generate model:
+  COMP_Model model(alpha, a, b, c);
 
-  // Test Filtering
+  // Generate Sequence
+  auto data = model.generateData(length);
+  data.saveTxt(path_join({base_dir, "data"}));
+
+  Evaluator evaluator(data.cps, threshold, window);
+
+  ForwardBackward fb(&model);
   std::cout << "\tfiltering...\n";
-  auto result_dm =  fb_dm.filtering(data.obs);
-  auto result_comp =  fb_comp.filtering(data.obs);
-  check_results(result_dm, result_comp);
+  auto result =  fb.filtering(data.obs, &evaluator);
+  result.saveTxt(path_join({base_dir, "filtering"}));
 
-  // Test Smoothing
   std::cout << "\tsmoothing...\n";
-  result_dm =  fb_dm.smoothing(data.obs);
-  result_comp =  fb_comp.smoothing(data.obs);
-  check_results(result_dm, result_comp);
+  result =  fb.smoothing(data.obs, &evaluator);
+  result.saveTxt(path_join({base_dir, "smoothing"}));
 
-  // Test Online Smoothing
   std::cout << "\tonline smoothing...\n";
-  result_dm =  fb_dm.online_smoothing(data.obs, lag);
-  result_comp =  fb_comp.online_smoothing(data.obs, lag);
-  check_results(result_dm, result_comp);
+  result =  fb.online_smoothing(data.obs, lag, &evaluator);
+  result.saveTxt(path_join({base_dir, "online_smoothing"}));
 
-  std::cout << "done.\n\n";
-}
+  std::cout << "done.\n\n"
+            << "For visualization run command:\n\n"
+            << "python ../visualize/test_comp.py "
+            << base_dir << " "  << std::to_string(M) << std::endl;
 
-void test_pg() {
+};
 
-  std::cout << "Tesing PG Model...\n";
-
-  const size_t length = 1000;
-  const double p1 = 0.01;
-  const size_t lag = 10;
-
-  // Generate DM Model
-  Vector a = Vector(1, 10);
-  Vector b = Vector(1, 5);
-
-  PG_Model model_pg(a[0], b[0] ,p1);
-  ForwardBackward fb_pg(&model_pg);
-
-  // Generate Coupled Model with DM component only
-  COMP_Model model_comp(Vector(), a, b, p1);
-  ForwardBackward fb_comp(&model_comp);
-
-  // Generate Data
-  auto data = model_pg.generateData(length);
-
-  // Test Filtering
-  std::cout << "\tfiltering...\n";
-  auto result_pg =  fb_pg.filtering(data.obs);
-  auto result_comp =  fb_comp.filtering(data.obs);
-  check_results(result_pg, result_comp);
-
-  // Test Smoothing
-  std::cout << "\tsmoothing...\n";
-  result_pg =  fb_pg.smoothing(data.obs);
-  result_comp =  fb_comp.smoothing(data.obs);
-  check_results(result_pg, result_comp);
-
-  // Test Online Smoothing
-  std::cout << "\tonline smoothing...\n";
-  result_pg =  fb_pg.online_smoothing(data.obs, lag);
-  result_comp =  fb_comp.online_smoothing(data.obs, lag);
-  check_results(result_pg, result_comp);
-
-  std::cout << "done.\n\n";
-}
 
 int main(int argc, char *argv[]){
 
-  test_dm();
-  test_pg();
+  std::string base_dir = "/tmp";
+  if( argc > 1 )
+    base_dir = argv[1];
+
+  test_comp(base_dir);
 
   return 0;
 }

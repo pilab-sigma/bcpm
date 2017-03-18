@@ -7,7 +7,7 @@ const double threshold = 0.99;
 const size_t window = 1;
 
 
-int main(){
+void test_dm_em(const std::string &base_dir){
 
   cout << "test_dm_em...\n";
 
@@ -24,14 +24,14 @@ int main(){
 
   // Generate sequence
   auto data = model.generateData(length);
-  data.saveTxt("/tmp/data");
+  data.saveTxt(path_join({base_dir, "data"}));
 
   Evaluator evaluator(data.cps, threshold, window);
 
   // Estimate with true parameters
   ForwardBackward fb(&model);
   auto result = fb.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp/true");
+  data.saveTxt(path_join({base_dir, "true"}));
 
   // Learn parameters
   double c_init = 0.0001;
@@ -42,11 +42,11 @@ int main(){
 
   // Run with EM inital
   result = fb_em.smoothing(data.obs, &evaluator);
-  result.saveTxt("/tmp/initial");
+  data.saveTxt(path_join({base_dir, "initial"}));
 
   // Learn parameters
   result = fb_em.learn_parameters(data.obs, &evaluator);
-  result.saveTxt("/tmp/final");
+  data.saveTxt(path_join({base_dir, "final"}));
 
   std::cout << "-----------\n";
   std::cout << "True model:\n";
@@ -60,6 +60,15 @@ int main(){
   std::cout << "-----------\n";
 
   cout << "OK.\n";
+}
+
+int main(int argc, char *argv[]){
+
+  std::string base_dir = "/tmp";
+  if(argc == 2)
+    base_dir = argv[1];
+
+  test_dm_em(base_dir);
 
   return 0;
 }

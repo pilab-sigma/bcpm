@@ -11,8 +11,6 @@ add_executable(test_dm_em test_dm_em.cc)
 add_executable(test_pg test_pg.cc)
 add_executable(test_pg_em test_pg_em.cc)
 
-
-add_executable(test_comp test_comp.cc)
 add_executable(test_comp1 test_comp1.cc)
 add_executable(test_comp2 test_comp2.cc)
 add_executable(test_comp3 test_comp3.cc)

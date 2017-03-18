@@ -5,77 +5,55 @@
 using namespace std;
 using namespace pml;
 
-const size_t M = 5;
-const size_t N = 3;
+void test_potential_multiplication(){
+
+  std::cout << "Testing Potential Multiplication...\n";
+
+  Vector alpha1 = {1, 2, 3, 4};
+  Vector a1 = {10};
+  Vector b1 = {1};
+
+  Vector alpha2 = {5, 6, 7, 8};
+  Vector a2 = {5};
+  Vector b2 = {2};
+  Vector empty = {};
+
+  Vector alpha_result = {5,7,9,11};
+  Vector a_result = {14};
+  Vector b_result = {0.66666667};
 
 
-void test_comp(const string &base_dir) {
+  // Part 1: Multiply Dirichlets
+  CompoundPotential cp1(alpha1, empty, empty);
+  CompoundPotential cp2(alpha2, empty, empty);
+  CompoundPotential* cp3 = (CompoundPotential*)(cp1 * cp2);
+  assert(fequal(cp3->log_c, 2.62466487));
+  assert(cp3->alpha.equals(alpha_result));
+  delete cp3;
 
-  const double threshold = 0.99;
-  const size_t window = 1;
+  // Part 2: Multiply Gammas
+  cp1 = CompoundPotential(empty, a1, b1);
+  cp2 = CompoundPotential(empty, a2, b2);
+  cp3 = (CompoundPotential*)(cp1 * cp2);
+  assert(fequal(cp3->log_c, -2.56996487));
+  assert(cp3->a.equals(a_result));
+  assert(cp3->b.equals(b_result));
+  delete cp3;
 
-  const size_t length = 100;
-  const double c = 0.01;
+  // Part 3: Multiply Both
+  cp1 = CompoundPotential (alpha1, a1, b1);
+  cp2 = CompoundPotential (alpha2, a2, b2);
+  cp3 = (CompoundPotential*)(cp1 * cp2);
+  assert(fequal(cp3->log_c, 2.62466487 - 2.56996487));
+  assert(cp3->alpha.equals(alpha_result));
+  assert(cp3->a.equals(a_result));
+  assert(cp3->b.equals(b_result));
+  delete cp3;
 
-  const double alpha_ = 5;
-  const double a_ = 10;
-  const double b_ = 5;
-
-  const size_t lag = 10;
-
-
-  cout << "test_compound...\n";
-  Vector alpha = Vector::ones(M)*alpha_;
-  Vector a = Vector::ones(N)*a_;
-  Vector b = Vector::ones(N)*b_;
-
-  // Generate model:
-  COMP_Model model(alpha, a, b, c);
-
-  // Generate Sequence
-  auto data = model.generateData(length);
-  data.saveTxt(path_join({base_dir, "data"}));
-
-  Evaluator evaluator(data.cps, threshold, window);
-
-  ForwardBackward fb(&model);
-  std::cout << "Filtering...\n";
-  auto result =  fb.filtering(data.obs, &evaluator);
-  result.saveTxt(path_join({base_dir, "filtering"}));
-  cout << result.cpp << endl << sum(result.cpp) << endl;
-
-
-  std::cout << "Smoothing...\n";
-  result =  fb.smoothing(data.obs, &evaluator);
-  result.saveTxt(path_join({base_dir, "smoothing"}));
-  cout << result.cpp << endl << sum(result.cpp) << endl;
-
-
-  std::cout << "Filtering...\n";
-  result =  fb.online_smoothing(data.obs, lag, &evaluator);
-  result.saveTxt(path_join({base_dir, "online_smoothing"}));
-  cout << result.cpp << endl << sum(result.cpp) << endl;
-
-  std::cout << "OK.\n";
+  std::cout << "done.\n";
 }
 
-void visualize(const string &python_exec){
-  const std::string cmd = python_exec + " ../visualize/test_comp.py /tmp "
-                          + std::to_string(M);
-  if(system(cmd.c_str()))
-    std::cout <<"visualization error...\n";
-}
-
-
-int main(int argc, char *argv[]){
-
-  test_comp("/tmp");
-
-  // Visualize
-  std::string python_exec = "python";
-  if(argc == 2)
-    python_exec = argv[1];
-  visualize(python_exec);
-
+int main(){
+  test_potential_multiplication();
   return 0;
 }

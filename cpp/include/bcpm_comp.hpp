@@ -129,8 +129,24 @@ class COMP_Model : public Model{
       N = a.size();
     }
 
+    COMP_Model(const COMP_Model &model) : Model(model.p1){
+      prior = (CompoundPotential*) model.prior->clone();
+      M = model.M;
+      N = model.N;
+    }
+
     ~COMP_Model(){
       delete prior;
+    }
+
+    COMP_Model& operator=(const COMP_Model &model){
+      if(prior)
+        delete prior;
+      set_p1(model.p1);
+      prior = (CompoundPotential*) model.prior->clone();
+      M = model.M;
+      N = model.N;
+      return *this;
     }
 
     const Potential* getPrior() override {

@@ -23,7 +23,7 @@ class GammaPotential : public Potential {
       GammaPotential *pp = (GammaPotential*) &p;
       double a_ = a + pp->a - 1;
       double b_ = (b * pp->b) / (b + pp->b);
-      double log_c_ = gammaln(a_) + a * std::log(b_)
+      double log_c_ = gammaln(a_) + a_ * std::log(b_)
                      - gammaln(a) - a * std::log(b)
                      - gammaln(pp->a) - pp->a * std::log(pp->b);
       this->a  = a_;
@@ -76,9 +76,24 @@ class PG_Model : public Model {
       scale = fixed_scale ? b : 0;
     }
 
+    PG_Model(const PG_Model &model) : Model(model.p1){
+      prior = (GammaPotential*) model.prior->clone();
+      scale = model.scale;
+    }
+
     ~PG_Model(){
       delete prior;
     }
+
+    PG_Model& operator=(const PG_Model &model){
+      if(prior)
+        delete prior;
+      set_p1(model.p1);
+      prior = (GammaPotential*) model.prior->clone();
+      scale = model.scale;
+      return *this;
+    }
+
 
     const Potential* getPrior() override {
       return prior;

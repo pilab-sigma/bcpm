@@ -7,7 +7,7 @@ using namespace pml;
 
 
 void test_dm(const string &base_dir){
-  cout << "test_dm...\n";
+  cout << "Testing DM Model...\n";
 
   const double p1 = 0.01;
   const size_t K = 5;
@@ -32,40 +32,34 @@ void test_dm(const string &base_dir){
   ForwardBackward fb(&model);
 
   // Filtering
-  std::cout << "Filtering...\n";
+  std::cout << "\tfiltering...\n";
   auto result =  fb.filtering(data.obs, &evaluator);
   result.saveTxt(path_join({base_dir, "filtering"}));
 
   // Smoothing
-  std::cout << "Smoothing...\n";
+  std::cout << "\tsmoothing...\n";
   result = fb.smoothing(data.obs, &evaluator);
   result.saveTxt(path_join({base_dir, "smoothing"}));
 
   // Fixed Lag
-  std::cout << "Online smoothing...\n";
+  std::cout << "\tonline smoothing...\n";
   result = fb.online_smoothing(data.obs, lag, &evaluator);
   result.saveTxt(path_join({base_dir, "online_smoothing"}));
 
-  cout << "OK.\n";
+  cout << "done.\n\n"
+       << "For visualization run command:\n\n"
+       << "python ../visualize/test_dm.py " + base_dir << std::endl;
 
   return;
 }
 
-void visualize(const string &python_exec){
-  const std::string cmd = python_exec + " ../visualize/test_dm.py";
-  if(system(cmd.c_str()))
-    std::cout <<"visualization error...\n";
-}
-
 int main(int argc, char *argv[]){
 
-  test_dm("/tmp");
-
-  // Visualize
-  std::string python_exec = "python";
+  std::string base_dir = "/tmp";
   if(argc == 2)
-    python_exec = argv[1];
-  visualize(python_exec);
+    base_dir = argv[1];
+
+  test_dm(base_dir);
 
   return 0;
 }

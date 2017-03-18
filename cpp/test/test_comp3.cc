@@ -1,82 +1,108 @@
-//
-// Created by cagatay on 11.03.2017.
-//
+#include <cassert>
 
+#include <bcpm_dm.hpp>
+#include <bcpm_pg.hpp>
 #include <bcpm_comp.hpp>
-#include "../old/bcpm_compound.hpp"
-
 
 using namespace std;
 using namespace pml;
 
-
-const double threshold = 0.99;
-const size_t window = 1;
-const size_t lag = 10;
-
-size_t length = 200;
-double c = 0.01;
-
-double alpha_ = 5;
-double a_ = 10;
-double b_ = 5;
-
-size_t M = 5;
-size_t N = 3;
-
-void check_results(Result &r1, old::Result &r2){
-
-  assert(r1.cpp.equals(r2.cpp));
+void check_results(Result &r1, Result &r2){
   assert(r1.mean.equals(r2.mean));
+  assert(r1.cpp.equals(r2.cpp));
   assert(r1.ll.equals(r2.ll));
   assert(r1.score.equals(r2.score));
 }
 
-void test_coupled() {
-  cout << "Test Compound Model...\n";
-  Vector alpha = Vector::ones(M) * alpha_;
-  Vector a = Vector::ones(N) * a_;
-  Vector b = Vector::ones(N) * b_;
+void test_dm() {
 
-  // Generate model:
-  COMP_Model model(alpha, a, b, c);
-  ForwardBackward fb(&model);
+  std::cout << "Testing DM Model...\n";
 
-  // Generate Old Model:
-  old::Model model_old(c, old::Potential(alpha, a, b));
+  const size_t M = 5;
+  const size_t length = 200;
+  const double p1 = 0.01;
+  const size_t lag = 10;
 
-  // Generate Sequence
-  auto data = model.generateData(length);
+  // Generate DM Model
+  const Vector alpha = Vector::ones(M);
+  DM_Model model_dm(alpha, p1);
+  ForwardBackward fb_dm(&model_dm);
+
+  // Generate Coupled Model with DM component only
+  COMP_Model model_comp(alpha, Vector(), Vector(), p1);
+  ForwardBackward fb_comp(&model_comp);
+
+  // Generate Data
+  auto data = model_dm.generateData(length);
 
   // Test Filtering
   std::cout << "\tfiltering...\n";
-  auto result = fb.filtering(data.obs);
-  auto result_old = model_old.filtering(data.obs);
-  check_results(result, result_old);
+  auto result_dm =  fb_dm.filtering(data.obs);
+  auto result_comp =  fb_comp.filtering(data.obs);
+  check_results(result_dm, result_comp);
 
   // Test Smoothing
   std::cout << "\tsmoothing...\n";
-  result = fb.smoothing(data.obs);
-  result.saveTxt("/tmp/result");
-  result_old = model_old.smoothing(data.obs);
-  result_old.saveTxt("/tmp/result_old");
-  check_results(result, result_old);
+  result_dm =  fb_dm.smoothing(data.obs);
+  result_comp =  fb_comp.smoothing(data.obs);
+  check_results(result_dm, result_comp);
 
   // Test Online Smoothing
   std::cout << "\tonline smoothing...\n";
-  result = fb.online_smoothing(data.obs, lag);
-  result.saveTxt("/tmp/result");
-  result_old = model_old.online_smoothing(data.obs, lag);
-  result_old.saveTxt("/tmp/result_old");
-  check_results(result, result_old);
-
+  result_dm =  fb_dm.online_smoothing(data.obs, lag);
+  result_comp =  fb_comp.online_smoothing(data.obs, lag);
+  check_results(result_dm, result_comp);
 
   std::cout << "done.\n\n";
 }
 
+void test_pg() {
 
+  std::cout << "Testing PG Model...\n";
 
-int main() {
-  test_coupled();
+  const size_t length = 200;
+  const double p1 = 0.01;
+  const size_t lag = 10;
+
+  // Generate DM Model
+  Vector a = Vector(1, 10);
+  Vector b = Vector(1, 5);
+
+  PG_Model model_pg(a[0], b[0] ,p1);
+  ForwardBackward fb_pg(&model_pg);
+
+  // Generate Coupled Model with DM component only
+  COMP_Model model_comp(Vector(), a, b, p1);
+  ForwardBackward fb_comp(&model_comp);
+
+  // Generate Data
+  auto data = model_pg.generateData(length);
+
+  // Test Filtering
+  std::cout << "\tfiltering...\n";
+  auto result_pg =  fb_pg.filtering(data.obs);
+  auto result_comp =  fb_comp.filtering(data.obs);
+  check_results(result_pg, result_comp);
+
+  // Test Smoothing
+  std::cout << "\tsmoothing...\n";
+  result_pg =  fb_pg.smoothing(data.obs);
+  result_comp =  fb_comp.smoothing(data.obs);
+  check_results(result_pg, result_comp);
+
+  // Test Online Smoothing
+  std::cout << "\tonline smoothing...\n";
+  result_pg =  fb_pg.online_smoothing(data.obs, lag);
+  result_comp =  fb_comp.online_smoothing(data.obs, lag);
+  check_results(result_pg, result_comp);
+
+  std::cout << "done.\n\n";
+}
+
+int main(int argc, char *argv[]){
+
+  test_dm();
+  test_pg();
+
   return 0;
 }

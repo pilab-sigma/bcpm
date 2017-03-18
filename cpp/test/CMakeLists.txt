@@ -11,7 +11,10 @@ add_executable(test_dm_em test_dm_em.cc)
 add_executable(test_pg test_pg.cc)
 add_executable(test_pg_em test_pg_em.cc)
 
-add_executable(test_comp1 test_comp1.cc)
-add_executable(test_comp2 test_comp2.cc)
-add_executable(test_comp3 test_comp3.cc)
+add_executable(test_gaussian test_gaussian.cc)
+add_executable(test_gaussian_em test_gaussian_em.cc)
+
+add_executable(test_compound1 test_compound1.cc)
+add_executable(test_compound2 test_compound2.cc)
+add_executable(test_compound3 test_compound3.cc)
 

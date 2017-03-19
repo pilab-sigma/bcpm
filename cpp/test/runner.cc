@@ -9,28 +9,11 @@ const size_t M = 5;
 const size_t N = 3;
 
 
-void test_comp(const string &base_dir) {
-
-  /*
-  const double threshold = 0.99;
-  const size_t window = 1;
-  const size_t length = 100;
-
-  const double c = 0.01;
-  const double alpha_ = 5;
-  const double a_ = 10;
-  const double b_ = 5;
-
-  Vector alpha = Vector::ones(M)*alpha_;
-  Vector a = Vector::ones(N)*a_;
-  Vector b = Vector::ones(N)*b_;
-  // Generate model:
-  COMP_Model model(alpha, a, b, c);
-  */
+void run_model(const string &base_dir, const string& method) {
 
   cout << "Testing compound model...\n";
 
-  COMP_Model model(Vector::zeros(0),Vector::zeros(0),Vector::zeros(0),1);
+  COMP_Model model;
   model.loadTxt(path_join({base_dir, "model.txt"}));
   const size_t lag = 10;
 
@@ -38,25 +21,30 @@ void test_comp(const string &base_dir) {
   // auto data = model.generateData(length);
   // data.saveTxt(path_join({base_dir, "data"}));
 
-  ChangePointData data(path_join({base_dir, "data"}));
+  // load data instead of generating a sequence
+  // ChangePointData data(path_join({base_dir, "data"}));
+
+  // load data v2
+  ChangePointData data;
+  data.obs = Matrix::loadTxt(path_join({base_dir, "data.txt"}));
+  cout << "data.shape:\t" << data.obs.nrows() << ", " << data.obs.ncols() << endl;
 
   ForwardBackward fb(&model);
-  std::cout << "\tfiltering...\n";
-  auto result =  fb.filtering(data.obs);
-  result.saveTxt(path_join({base_dir, "filtering_cpp"}));
-
-  std::cout << "\tsmoothing...\n";
-  result =  fb.smoothing(data.obs);
-  result.saveTxt(path_join({base_dir, "smoothing_cpp"}));
-
-  std::cout << "\tonline smoothing...\n";
-  result =  fb.online_smoothing(data.obs, lag);
-  result.saveTxt(path_join({base_dir, "online_smoothing_cpp"}));
-
-  std::cout << "done.\n\n"
-  << "For visualization run command:\n\n"
-  << "python ../visualize/test_comp.py "
-  << base_dir << " "  << std::to_string(M) << std::endl;
+  if (method=="filtering") {
+    std::cout << "\tfiltering...\n";
+    auto result_filter = fb.filtering(data.obs);
+    result_filter.saveTxt(path_join({base_dir, "filtering_cpp"}));
+  }
+  else if (method=="smoothing") {
+    std::cout << "\tsmoothing...\n";
+    auto result_smooth = fb.smoothing(data.obs);
+    result_smooth.saveTxt(path_join({base_dir, "smoothing_cpp"}));
+  }
+  else if (method=="online_smoothing") {
+    std::cout << "\tonline smoothing...\n";
+    auto result_online_smooth = fb.online_smoothing(data.obs, lag);
+    result_online_smooth.saveTxt(path_join({base_dir, "online_smoothing_cpp"}));
+  }
 
 };
 
@@ -67,7 +55,9 @@ int main(int argc, char *argv[]){
   if( argc > 1 )
     base_dir = argv[1];
 
-  test_comp(base_dir);
+  std::string method= "online_smoothing";
+
+  run_model(base_dir, method);
 
   return 0;
 }

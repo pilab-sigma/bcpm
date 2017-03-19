@@ -122,6 +122,7 @@ class CompoundPotential : public Potential {
 class COMP_Model : public Model{
 
   public:
+    COMP_Model():Model(1){}
     COMP_Model(Vector alpha, Vector a, Vector b, double p1_)
         :Model(p1_) {
       prior = new CompoundPotential(alpha, a, b);

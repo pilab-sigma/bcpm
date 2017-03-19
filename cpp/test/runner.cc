@@ -5,9 +5,6 @@
 using namespace std;
 using namespace pml;
 
-const size_t M = 5;
-const size_t N = 3;
-
 
 void run_model(const string &base_dir, const string& method) {
 

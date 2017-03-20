@@ -29,6 +29,7 @@ class ChangePointData {
 
     // Loads the data matrices from folder "dirname"
     ChangePointData(const std::string &dirname){
+      ASSERT_TRUE(dir_exists(dirname), "Data folder not found: " + dirname );
       obs = Matrix::loadTxt(path_join({dirname, "obs.txt"}));
       states = Matrix::loadTxt(path_join({dirname, "states.txt"}));
       cps = Vector::loadTxt(path_join({dirname, "cps.txt"}));

@@ -532,6 +532,45 @@ class ForwardBackward {
 
     Result online_smoothing(const Matrix& obs, size_t lag,
                             Evaluator *evaluator = nullptr){
+
+      Result result;
+      Message gamma;
+
+      alpha.clear();
+      alpha_predict.clear();
+      for (size_t i=0; i<=obs.ncols(); i++) {
+        oneStepForward(obs.getColumn(i));
+        if (i>=lag) {
+          backward(obs, i-1, lag);
+          gamma = alpha_predict.front() * beta.front();
+          result.mean.appendColumn(gamma.mean());
+          result.cpp.append(gamma.cpp(beta.front().size()));
+          alpha_predict.erase(alpha_predict.begin());
+          alpha.erase(alpha.begin());
+        }
+      }
+
+      // Smooth alpha[T-lag+1:T] with last beta.
+      for(size_t i = 1; i < lag; ++i){
+        gamma = alpha_predict.front() * beta[i];
+        result.mean.appendColumn(gamma.mean());
+        result.cpp.append(gamma.cpp(beta[i].size()));
+        alpha_predict.erase(alpha_predict.begin());
+        alpha.erase(alpha.begin());
+      }
+
+
+      // Evaluate
+      result.ll.append(alpha.back().log_likelihood());
+      if(evaluator){
+        result.append(evaluator->evaluate(result.cpp));
+      }
+
+      return result;
+    }
+
+    Result online_smoothing_deprecated(const Matrix& obs, size_t lag,
+                            Evaluator *evaluator = nullptr){
       if(lag == 0)
         return filtering(obs, evaluator);
 
